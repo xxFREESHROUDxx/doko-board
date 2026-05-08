@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: projecthub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: projecthub
+      POSTGRES_PASSWORD: projecthub_dev
+      POSTGRES_DB: projecthub
+    ports:
+      - "5432:5432"
+    volumes:
+      - projecthub_pgdata:/var/lib/postgresql/data
+
+volumes:
+  projecthub_pgdata:
