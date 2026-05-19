@@ -1,16 +1,16 @@
 services:
   postgres:
     image: postgres:16
-    container_name: projecthub-db
+    container_name: dokoboard-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: projecthub
-      POSTGRES_PASSWORD: projecthub_dev
-      POSTGRES_DB: projecthub
+      POSTGRES_USER: dokoboard
+      POSTGRES_PASSWORD: dokoboard_dev
+      POSTGRES_DB: dokoboard
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - projecthub_pgdata:/var/lib/postgresql/data
+      - dokoboard_pgdata:/var/lib/postgresql/data
 
 volumes:
-  projecthub_pgdata:
+  dokoboard_pgdata:
