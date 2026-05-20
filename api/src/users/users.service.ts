@@ -49,7 +49,9 @@ export class UsersService {
         },
       });
     } catch (error) {
-      // P2002 error is for unhandled 500 status code causing data already exist in db or something like that. Its inside the PrismaClientKnownRequestError.
+      // P2002 = Prisma unique constraint violation. Thrown by the DB when our
+      // application check (above) missed a race condition and two concurrent
+      // requests both passed the check. The DB constraint is our safety net.
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
