@@ -3,12 +3,12 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/users/users.service';
 import * as bcrypt from 'bcrypt';
 
-interface JwtPayload {
+export interface JwtPayload {
   sub: string;
   email: string;
 }
 
-interface AuthResult {
+export interface AuthResult {
   accessToken: string;
   user: {
     id: string;
