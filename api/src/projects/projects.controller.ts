@@ -46,7 +46,7 @@ export class ProjectsController {
   update(
     @CurrentUser() user: PublicUser,
     @Param('id', ParseUUIDPipe) id: string,
-    dto: UpdateProjectDto,
+    @Body() dto: UpdateProjectDto,
   ) {
     return this.projectsService.update(id, user.id, dto);
   }
