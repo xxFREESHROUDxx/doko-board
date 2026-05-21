@@ -1,7 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service';
 
 const EMAIL_OR_USERNAME_ALREADY_IN_USE = 'Email or Username already in use.';
 

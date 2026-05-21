@@ -1,21 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from 'src/users/users.service';
 import * as bcrypt from 'bcrypt';
-
-export interface JwtPayload {
-  sub: string;
-  email: string;
-}
-
-export interface AuthResult {
-  accessToken: string;
-  user: {
-    id: string;
-    email: string;
-    username: string;
-  };
-}
+import { UsersService } from '../users/users.service';
+import { AuthResult, JwtPayload, PublicUser } from './auth.types';
+import { User } from '@prisma/client';
 
 const INVALID_CREDENTIALS = 'Invalid Credentials';
 
@@ -54,21 +42,19 @@ export class AuthService {
     return this.buildAuthResult(user);
   }
 
-  private buildAuthResult(user: {
-    id: string;
-    email: string;
-    username: string;
-  }): AuthResult {
+  private buildAuthResult(user: User): AuthResult {
+    const publicUser: PublicUser = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+    };
+
     const payload: JwtPayload = { sub: user.id, email: user.email };
     const accessToken = this.jwtService.sign(payload);
 
     return {
       accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-      },
+      user: publicUser,
     };
   }
 }
