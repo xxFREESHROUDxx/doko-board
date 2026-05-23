@@ -115,6 +115,34 @@ export class ProjectsService {
     }
   }
 
+  async listMembers(projectId: string, userId: string) {
+    // Anyone who's a member of a project can list its members.
+    const requester = await this.prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId } },
+    });
+
+    if (!requester) {
+      throw new NotFoundException(PROJECT_NOT_FOUND);
+    }
+
+    return this.prisma.projectMember.findMany({
+      where: { projectId },
+      select: {
+        id: true,
+        role: true,
+        joinedAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+          },
+        },
+      },
+      orderBy: { joinedAt: 'asc' }, // so that the OWNER comes first as they are the one who joined at first
+    });
+  }
+
   async addMember(
     projectId: string,
     actingUserId: string,

@@ -62,6 +62,14 @@ export class ProjectsController {
     return this.projectsService.delete(ProjectId, user.id);
   }
 
+  @Get(':id/members')
+  findMembers(
+    @CurrentUser() user: PublicUser,
+    @Param('id', ParseUUIDPipe) projectId: string,
+  ) {
+    return this.projectsService.listMembers(projectId, user.id);
+  }
+
   @Post(':id/members')
   @HttpCode(HttpStatus.CREATED)
   addMember(
