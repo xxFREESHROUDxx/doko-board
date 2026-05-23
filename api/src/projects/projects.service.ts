@@ -63,7 +63,7 @@ export class ProjectsService {
     userId: string,
     dto: UpdateProjectDto,
   ): Promise<Project> {
-    await this.assertCanModify(projectId, userId);
+    await this.assertCanAdminister(projectId, userId);
 
     return this.prisma.project.update({
       where: { id: projectId },
@@ -79,7 +79,7 @@ export class ProjectsService {
     });
   }
 
-  private async assertCanModify(
+  private async assertCanAdminister(
     projectId: string,
     userId: string,
   ): Promise<void> {
@@ -150,7 +150,7 @@ export class ProjectsService {
     role: ProjectRole,
   ): Promise<void> {
     // Check if the requester is a OWNER or ADMIN
-    await this.assertCanModify(projectId, actingUserId);
+    await this.assertCanAdminister(projectId, actingUserId);
 
     // We don't promote someone to OWNER through this endpoint - ownership transfer is a separate flow
     if (role === ProjectRole.OWNER) {
@@ -207,7 +207,7 @@ export class ProjectsService {
     actingUserId: string,
     targetUserId: string,
   ): Promise<void> {
-    await this.assertCanModify(projectId, actingUserId);
+    await this.assertCanAdminister(projectId, actingUserId);
 
     const targetUser = await this.prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId, userId: targetUserId } },
@@ -247,7 +247,7 @@ export class ProjectsService {
     targetUserId: string,
     newRole: ProjectRole,
   ): Promise<void> {
-    await this.assertCanModify(projectId, actingUserId);
+    await this.assertCanAdminister(projectId, actingUserId);
 
     if (newRole === ProjectRole.OWNER) {
       throw new ForbiddenException(
