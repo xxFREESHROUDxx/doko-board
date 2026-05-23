@@ -138,7 +138,7 @@ export class ProjectsService {
     });
 
     if (!targetUser) {
-      throw new NotFoundException('User not found!');
+      return; // silently returning nothing if there is no user found. So that attacker cannot know if the user exists or not.
     }
 
     // Check existence first; rely on unique constraints as safety
