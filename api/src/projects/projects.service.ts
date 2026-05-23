@@ -1,11 +1,12 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
-import { Project, ProjectRole } from '@prisma/client';
+import { Prisma, Project, ProjectRole } from '@prisma/client';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
 const PROJECT_NOT_FOUND = 'Project not found!';
@@ -112,5 +113,137 @@ export class ProjectsService {
     if (membership.role !== ProjectRole.OWNER) {
       throw new ForbiddenException('Only the owner can delete this project.');
     }
+  }
+
+  async addMember(
+    projectId: string,
+    actingUserId: string,
+    memberEmail: string,
+    role: ProjectRole,
+  ): Promise<void> {
+    // Check if the requester is a OWNER or ADMIN
+    await this.assertCanModify(projectId, actingUserId);
+
+    // We don't promote someone to OWNER through this endpoint - ownership transfer is a separate flow
+    if (role === ProjectRole.OWNER) {
+      throw new ForbiddenException(
+        'Use the ownership transfer endpoint to assign OWNER',
+      );
+    }
+
+    // Find the user by email. Returning 404 here doesn't disclose project info
+    // It discloses that this email isn't on the platform. We'll address this later.
+    const targetUser = await this.prisma.user.findUnique({
+      where: { email: memberEmail.toLowerCase() },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found!');
+    }
+
+    // Check existence first; rely on unique constraints as safety
+    const existing = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: { projectId, userId: targetUser.id },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('User is already a member of this project.');
+    }
+
+    try {
+      await this.prisma.projectMember.create({
+        data: {
+          projectId,
+          userId: targetUser.id,
+          role,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'User is already a member of this project.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  async removeMember(
+    projectId: string,
+    actingUserId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.assertCanModify(projectId, actingUserId);
+
+    const targetUser = await this.prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId: targetUserId } },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('Member not found in this project');
+    }
+
+    // Cannot remove the OWNER through this endpoint.
+    if (targetUser.role === ProjectRole.OWNER) {
+      throw new ForbiddenException(
+        'Cannot remove this project owner. Transfer ownership first.',
+      );
+    }
+
+    // Admins cannot remove other admins
+    const actingUser = await this.prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId: actingUserId } },
+    });
+
+    if (
+      actingUser!.role === ProjectRole.ADMIN &&
+      targetUser.role === ProjectRole.ADMIN
+    ) {
+      throw new ForbiddenException('Admins cannot remove other admins');
+    }
+
+    await this.prisma.projectMember.delete({
+      where: { projectId_userId: { projectId, userId: targetUserId } },
+    });
+  }
+
+  async changeMemberRole(
+    projectId: string,
+    actingUserId: string,
+    targetUserId: string,
+    newRole: ProjectRole,
+  ): Promise<void> {
+    await this.assertCanModify(projectId, actingUserId);
+
+    if (newRole === ProjectRole.OWNER) {
+      throw new ForbiddenException(
+        'Use the ownership transfer endpoint to assign OWNER',
+      );
+    }
+
+    const targetUser = await this.prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId: targetUserId } },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('Member not found in this project');
+    }
+
+    if (targetUser.role === ProjectRole.OWNER) {
+      throw new ForbiddenException("Cannot change the owner's role");
+    }
+
+    await this.prisma.projectMember.update({
+      where: {
+        projectId_userId: { projectId, userId: targetUserId },
+      },
+      data: { role: newRole },
+    });
   }
 }
