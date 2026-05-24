@@ -14,7 +14,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProjectsService } from './projects.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { type PublicUser } from '../auth/auth.types';
+import type { PublicUser } from '../auth/auth.types';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { AddMemberDto } from './dto/add-member.dto';
