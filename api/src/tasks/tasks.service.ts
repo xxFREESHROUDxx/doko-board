@@ -172,6 +172,8 @@ export class TasksService {
 
     const isTaskCreator = task.createdById === userId;
 
+    // Authorization: admins and owners can delete any task in the project;
+    // members can only delete tasks they created themselves
     if (!isAdminOrOwner && !isTaskCreator) {
       throw new ForbiddenException('You cannot delete this task');
     }
