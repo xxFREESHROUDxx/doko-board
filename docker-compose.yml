@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: dokoboard_dev
       POSTGRES_DB: dokoboard
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - dokoboard_pgdata:/var/lib/postgresql/data
 
