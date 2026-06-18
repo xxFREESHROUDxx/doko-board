@@ -21,30 +21,12 @@ export class ApiError extends Error {
   }
 }
 
-// Normalizes the default Nest shape (message: string | string[])
-// AND the standardized shape (message + details). Works either way.
-function normalizeError(status: number, body: unknown): ApiError {
-  if (body && typeof body === "object") {
-    const b = body as { message?: string | string[]; details?: string[] };
-    if (Array.isArray(b.message)) {
-      return new ApiError(status, "Validation failed", b.message);
-    }
-    if (typeof b.message === "string") {
-      return new ApiError(status, b.message, b.details);
-    }
-  }
-  return new ApiError(status, "Something went wrong");
-}
-
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: RequestOptions = {},
-): Promise<T> {
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body } = options;
   const token = tokenStore.get();
 
@@ -62,15 +44,15 @@ export async function apiRequest<T>(
     tokenStore.clear();
   }
 
-  if (res.status === 204) {
-    return undefined as T; // No Content (our DELETE endpoints)
-  }
-
-  const data = await res.json().catch(() => null);
+  const envelope = await res.json().catch(() => null);
 
   if (!res.ok) {
-    throw normalizeError(res.status, data);
+    throw new ApiError(
+      res.status,
+      envelope?.message ?? "Something went wrong",
+      envelope?.error?.details,
+    );
   }
 
-  return data as T;
+  return envelope?.data as T; // unwrap - callers get the bare resource
 }
