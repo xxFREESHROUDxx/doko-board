@@ -1,7 +1,9 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,6 +19,12 @@ async function bootstrap() {
       transform: true, // transform incoming JSON to DTO class instances
     }),
   );
+
+  // interceptors for global response
+  app.useGlobalInterceptors(
+    new ResponseEnvelopeInterceptor(app.get(Reflector)),
+  );
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   const config = new DocumentBuilder()
     .setTitle('DokoBoard API')
