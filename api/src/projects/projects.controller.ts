@@ -54,7 +54,6 @@ export class ProjectsController {
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @CurrentUser() user: PublicUser,
     @Param('id', ParseUUIDPipe) ProjectId: string,
@@ -86,7 +85,6 @@ export class ProjectsController {
   }
 
   @Delete(':id/members/:userId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   removeMember(
     @CurrentUser() user: PublicUser,
     @Param('id', ParseUUIDPipe) ProjectId: string,

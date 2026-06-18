@@ -14,6 +14,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { PublicUser } from './auth.types';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ResponseMessage } from '../common/interceptors/response-envelope.interceptor';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -21,6 +22,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
+  @ResponseMessage('User created successfully!')
   @HttpCode(HttpStatus.CREATED)
   @ApiBody({ type: RegisterDto })
   @ApiOperation({ summary: 'Register a new user and receive an access token' })

@@ -61,7 +61,6 @@ export class TasksController {
   }
 
   @Delete(':id/tasks/:taskId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   delete(
     @CurrentUser() user: PublicUser,
     @Param('id', ParseUUIDPipe) projectId: string,
