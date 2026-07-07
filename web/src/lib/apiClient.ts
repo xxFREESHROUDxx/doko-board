@@ -26,6 +26,13 @@ interface RequestOptions {
   body?: unknown;
 }
 
+// Let the auth layer react to a 401 from anywhere (e.g.  an expired token)
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler;
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body } = options;
   const token = tokenStore.get();
@@ -42,6 +49,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   // Token expired/invalid: drop it. The auth layer reacts and redirects.
   if (res.status === 401) {
     tokenStore.clear();
+    onUnauthorized?.();
   }
 
   const envelope = await res.json().catch(() => null);
