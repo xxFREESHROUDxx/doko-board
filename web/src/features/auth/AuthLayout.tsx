@@ -17,7 +17,7 @@ export const AuthLayout: FC<AuthLayoutProps> = ({ title, subtitle, children, foo
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
           style={{
             backgroundImage:
-              "repeating-linear-gradient(45deg,#fff 0 2px, transparent 2px 14px), repeating-liner-gradient(-45deg,#fff 0 2px, transparent 2px 14px)",
+              "repeating-linear-gradient(45deg,#fff 0 2px, transparent 2px 14px), repeating-linear-gradient(-45deg,#fff 0 2px, transparent 2px 14px)",
           }}
         />
         <Link to="/">
@@ -37,7 +37,7 @@ export const AuthLayout: FC<AuthLayoutProps> = ({ title, subtitle, children, foo
         <p className="relative text-sm text-paper/50">© {new Date().getFullYear()} DokoBoard</p>
       </aside>
 
-      <main className="flex-items center justify-center bg-paper p-6 sm:p-10">
+      <main className="flex items-center justify-center bg-paper p-6 sm:p-10">
         <div className="w-full max-w-sm">
           <span className="mb-8 block font-display text-2xl font-semibold md:hidden">
             Doko<span className="text-marigold-500">Board</span>
