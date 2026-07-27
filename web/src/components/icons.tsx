@@ -108,3 +108,20 @@ export function XIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </IconBase>
+  );
+}
+
+export function FolderIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+    </IconBase>
+  );
+}
