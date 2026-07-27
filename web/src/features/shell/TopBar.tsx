@@ -3,6 +3,7 @@ import { useMatches } from "react-router-dom";
 import { Avatar } from "../../components/Avatar";
 import { MenuIcon } from "../../components/icons";
 import { useAuth } from "../auth/authContext";
+import { ProjectChips } from "../projects/ProjectChips";
 import { isRouteHandle } from "./routeHandle";
 
 interface TopBarProps {
@@ -39,7 +40,8 @@ export function TopBar({ onOpenNav, navOpen }: TopBarProps) {
         <MenuIcon />
       </button>
       <h1 className="min-w-0 truncate font-display text-3xl font-semibold text-ink">{title}</h1>
-      {/* TODO(task-2): project chips + member avatar cluster render here. */}
+      <ProjectChips />
+      {/* TODO(task-3): member avatar cluster renders here. */}
       {user && <Avatar name={user.username} title={user.username} className="ml-auto" />}
     </header>
   );
