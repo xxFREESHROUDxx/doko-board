@@ -3,6 +3,7 @@ import { ProtectedRoute, PublicOnlyRoute } from "./features/auth/routeGuards";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
+import { ProjectBoardPage } from "./features/projects/ProjectBoardPage";
 import { AppShell } from "./features/shell/AppShell";
 import { PlaceholderPage } from "./features/shell/PlaceholderPage";
 import type { RouteHandle } from "./features/shell/routeHandle";
@@ -33,10 +34,15 @@ export const router = createBrowserRouter([
               <PlaceholderPage
                 title="Projects"
                 icon={KanbanIcon}
-                copy="Browse and manage every project you belong to, once the projects list lands."
+                copy="A dedicated projects view is on the way — for now, your projects live on the dashboard."
               />
             ),
             handle: { title: "Projects" } satisfies RouteHandle,
+          },
+          {
+            path: "/projects/:projectId",
+            element: <ProjectBoardPage />,
+            handle: { title: "Board" } satisfies RouteHandle,
           },
           {
             path: "/calendar",
