@@ -3,7 +3,11 @@ import type { AuthResponse, User } from "../../types/api";
 import { apiRequest, setUnauthorizedHandler, tokenStore } from "../../lib/apiClient";
 import { AuthContext, type AuthContextValue } from "./authContext";
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   // Start "initializing" only if there's a token to validate. No token means
   // we already know the answer (logged out) — no cold-boot check needed.
