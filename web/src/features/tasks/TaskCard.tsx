@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, PointerEvent } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useMoveTask } from "./useMoveTask";
@@ -76,35 +76,51 @@ interface CardShellProps {
 }
 
 /**
- * The card frame plus its drag affordance.
+ * The card frame plus its drag affordances.
  *
- * Dragging is on a handle rather than the whole card: the title is a stretched
- * link covering every pixel, and the footer holds a select, so a whole-card
- * drag would be fighting both. A handle is also a real button, which gives
- * dnd-kit's keyboard sensor something to focus.
+ * Pointer dragging works from anywhere on the card; keyboard dragging works
+ * from the grip. They have to be split because dnd-kit's `listeners` carries
+ * both onPointerDown and onKeyDown, and the keyboard half needs a focusable
+ * element — making the whole <li> focusable would put every card in the tab
+ * order twice. So the card takes the pointer half and the grip takes the rest.
+ *
+ * A 5px activation distance (see Board's sensors) keeps a click a click, so the
+ * title button and the status select still work normally.
  */
 function CardShell({ task, draggable, children }: CardShellProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } =
     useDraggable({ id: task.id, disabled: !draggable });
 
-  const base =
-    "relative cursor-pointer rounded-xl border border-stone-200 bg-white p-3.5 shadow-sm motion-safe:transition-[box-shadow,border-color] motion-safe:duration-150 hover:border-stone-300 hover:shadow-md";
+  // Split the listener map: the card takes the pointer half, the grip takes the
+  // rest (onKeyDown). Spreading avoids casting dnd-kit's loosely typed handlers.
+  const { onPointerDown, ...keyboardListeners } = listeners ?? {};
+
+  const startPointerDrag = (event: PointerEvent<HTMLLIElement>) => {
+    // A native select captures the pointer while its dropdown is open, so the
+    // pointerup can go missing and leave the card stuck mid-drag. Let the
+    // control have the gesture; the rest of the card is still draggable.
+    if ((event.target as HTMLElement).closest("select")) return;
+    onPointerDown?.(event);
+  };
 
   return (
     <li
       ref={setNodeRef}
+      onPointerDown={draggable ? startPointerDrag : undefined}
       // The overlay renders the card being dragged; leave a gap behind it rather
       // than a duplicate. Not display:none — the column would reflow mid-drag.
       style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : undefined }}
-      className={base}
+      className="relative cursor-pointer rounded-xl border border-stone-200 bg-white p-3.5 shadow-sm motion-safe:transition-[box-shadow,border-color] motion-safe:duration-150 hover:border-stone-300 hover:shadow-md"
     >
       {draggable && (
         <button
           ref={setActivatorNodeRef}
-          {...listeners}
           {...attributes}
+          {...keyboardListeners}
           type="button"
           aria-label={`Move ${task.title}`}
+          // touch-action stays on the grip alone. On the whole card it would
+          // kill vertical scrolling over the board on a touch screen.
           className="absolute right-1.5 top-1.5 z-10 inline-flex h-7 w-7 cursor-grab touch-none items-center justify-center rounded-md text-ink/30 hover:bg-stone-100 hover:text-ink/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marigold-500/50 active:cursor-grabbing motion-safe:transition-colors motion-safe:duration-150"
         >
           <GripIcon className="h-4 w-4" />
