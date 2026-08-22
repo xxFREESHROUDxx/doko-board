@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToastProvider } from "./ToastProvider";
 import { useToast } from "./toastContext";
@@ -63,5 +63,47 @@ describe("ToastProvider", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => render(<Trigger />)).toThrow(/must be used within/);
     spy.mockRestore();
+  });
+});
+
+describe("ToastProvider auto-dismiss", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // fireEvent, not userEvent: userEvent's async wrapper and vitest's fake timers
+  // deadlock waiting on each other. These assertions need no async at all.
+  function showToastWithFakeTimers(name: string) {
+    vi.useFakeTimers();
+    renderTrigger();
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name }));
+    });
+  }
+
+  it("clears a success toast on its own", () => {
+    showToastWithFakeTimers("Succeed");
+    expect(screen.getByText("Task created")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+
+    expect(screen.queryByText("Task created")).not.toBeInTheDocument();
+  });
+
+  it("leaves errors on screen longer than successes", () => {
+    showToastWithFakeTimers("Fail");
+
+    // Still there at the point a success would already have gone.
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(screen.getByText("Something broke")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(screen.queryByText("Something broke")).not.toBeInTheDocument();
   });
 });

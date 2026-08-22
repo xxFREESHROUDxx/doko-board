@@ -55,7 +55,7 @@ export function BoardToolbar({
               value={filters.search}
               onChange={(event) => set("search", event.target.value)}
               placeholder="Search tasks"
-              className="h-10 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-sm text-ink outline-none transition focus:border-pine-700 focus:ring-2 focus:ring-marigold-500/40"
+              className="h-10 w-full rounded-lg border border-stone-300 bg-white pl-9 pr-3 text-sm text-ink outline-none motion-safe:transition focus:border-pine-700 focus:ring-2 focus:ring-marigold-500/40"
             />
           </div>
         </div>

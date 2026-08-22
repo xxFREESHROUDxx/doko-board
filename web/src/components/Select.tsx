@@ -29,7 +29,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full appearance-none rounded-lg border border-stone-300 bg-white py-2.5 pl-3.5 pr-10 text-ink outline-none transition focus:border-pine-700 focus:ring-2 focus:ring-marigold-500/40 aria-invalid:border-red-500${className ? ` ${className}` : ""}`}
+          className={`w-full appearance-none rounded-lg border border-stone-300 bg-white py-2.5 pl-3.5 pr-10 text-ink outline-none motion-safe:transition focus:border-pine-700 focus:ring-2 focus:ring-marigold-500/40 aria-invalid:border-red-500${className ? ` ${className}` : ""}`}
           {...props}
         >
           {children}
