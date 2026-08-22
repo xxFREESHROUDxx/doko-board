@@ -1,0 +1,81 @@
+# The whole stack, the way a server would run it: database, migrations, API, web.
+#
+# Not the same thing as api/docker-compose.yml, which starts only Postgres for
+# local development against `npm run start:dev`. Use this one to check that the
+# images actually build and talk to each other before pushing them anywhere.
+#
+#   docker compose up --build
+#   web  -> http://localhost:8080
+#   api  -> http://localhost:3000/docs
+#
+# See docs/DOCKER.md.
+
+name: dokoboard
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: dokoboard
+      POSTGRES_PASSWORD: dokoboard_dev
+      POSTGRES_DB: dokoboard
+    volumes:
+      - dokoboard_pgdata:/var/lib/postgresql/data
+    # Nothing published to the host: only other services need to reach it, and
+    # 5432 is likely already taken by the local dev database.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dokoboard -d dokoboard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Migrations are their own step, not something the API does on boot. Two API
+  # replicas starting at once would otherwise race to migrate the same database.
+  # It runs from the `build` stage because `prisma migrate deploy` needs the
+  # Prisma CLI and the TypeScript config loader, neither of which the lean
+  # runtime image carries.
+  migrate:
+    build:
+      context: ./api
+      target: build
+    environment:
+      DATABASE_URL: postgresql://dokoboard:dokoboard_dev@db:5432/dokoboard?schema=public
+    command: npx prisma migrate deploy
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./api
+    environment:
+      DATABASE_URL: postgresql://dokoboard:dokoboard_dev@db:5432/dokoboard?schema=public
+      # Compose-only value. A real deployment reads this from a secret store.
+      JWT_SECRET: local-compose-secret-not-for-real-use
+      JWT_EXPIRES_IN: 7d
+      # The browser calls the API directly, so CORS must name the *browser's*
+      # origin — localhost:8080 — not the compose service name.
+      CORS_ORIGIN: http://localhost:8080
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ./web
+      args:
+        # Baked in at build time — see web/Dockerfile. This is the URL the
+        # browser will use, which is why it is localhost and not http://api.
+        VITE_API_URL: http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+
+volumes:
+  dokoboard_pgdata:

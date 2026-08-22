@@ -1,0 +1,21 @@
+# Host node_modules must never enter the image: bcrypt and Prisma's engine are
+# native binaries built for the host's OS and libc. Copying them in is the
+# classic "works locally, crashes in the container" bug.
+node_modules
+dist
+.pgdata
+
+# Secrets belong in the platform's environment, never baked into a layer.
+.env
+.env.*
+!.env.example
+
+test
+**/*.spec.ts
+coverage
+.git
+.gitignore
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md
