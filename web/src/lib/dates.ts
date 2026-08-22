@@ -25,11 +25,15 @@ export function toDateInputValue(iso: string): string {
 }
 
 /**
- * Whether a due date has passed, compared date-to-date in UTC so a task due
- * today never reads as overdue regardless of the viewer's timezone.
+ * Whether a due date has passed, compared whole day to whole day.
+ *
+ * "Today" is the viewer's *local* calendar day, projected onto the same UTC
+ * scale the due date is pinned to. Using the UTC day here instead would mark a
+ * task due today as overdue for anyone west of UTC once their evening crosses
+ * UTC midnight — the exact failure this function exists to avoid.
  */
 export function isOverdue(iso: string, now: Date = new Date()): boolean {
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
   const due = new Date(iso);
   const dueDay = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
   return dueDay < today;

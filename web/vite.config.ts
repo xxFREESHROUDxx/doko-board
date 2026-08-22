@@ -11,5 +11,9 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     restoreMocks: true,
+    // Deliberately not UTC. Due dates are stored at UTC midnight but "today" is
+    // the viewer's local day, and in a UTC runner those coincide — hiding every
+    // local-vs-UTC bug the date helpers exist to prevent.
+    env: { TZ: "America/Los_Angeles" },
   },
 });
