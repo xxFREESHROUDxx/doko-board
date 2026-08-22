@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UsersService } from '../../users/users.service';
-import { JwtPayload, PublicUser } from '../auth.types';
+import { JwtPayload, PublicUser, toPublicUser } from '../auth.types';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -25,10 +25,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('User no longer exists');
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-    };
+    return toPublicUser(user);
   }
 }
