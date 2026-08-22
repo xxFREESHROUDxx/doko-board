@@ -7,6 +7,12 @@ export const projectKeys = {
   detail: (id: string) => [...projectKeys.all, id] as const,
 };
 
+// A project's sub-resources (members, tasks) key off projectKeys.detail(id), so
+// the detail key is a prefix of theirs. Invalidations below therefore pass
+// `exact: true` — a bare ["projects"] invalidation would refetch every member
+// and task list in the cache just because a project was renamed. Deletion is the
+// one place that *wants* the prefix sweep.
+
 export interface CreateProjectInput {
   name: string;
   description?: string;
@@ -41,7 +47,7 @@ export function useCreateProject() {
     mutationFn: (input: CreateProjectInput) =>
       apiRequest<Project>("/projects", { method: "POST", body: input }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
     },
   });
 }
@@ -52,9 +58,10 @@ export function useUpdateProject() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateProjectInput }) =>
       apiRequest<Project>(`/projects/${id}`, { method: "PATCH", body: data }),
-    onSuccess: () => {
-      // The ["projects"] prefix covers both the reordered list and every detail entry.
-      void queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    onSuccess: (_data, { id }) => {
+      // The list reorders by updatedAt, and this project's detail row changed.
+      void queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.detail(id), exact: true });
     },
   });
 }
@@ -65,9 +72,10 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: (id: string) => apiRequest<null>(`/projects/${id}`, { method: "DELETE" }),
     onSuccess: (_data, id) => {
-      // Drop the detail entry first so invalidation doesn't refetch a 404.
+      // Prefix removal on purpose: drops the detail entry *and* the project's
+      // members/tasks, so nothing refetches into a 404.
       queryClient.removeQueries({ queryKey: projectKeys.detail(id) });
-      void queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
     },
   });
 }
