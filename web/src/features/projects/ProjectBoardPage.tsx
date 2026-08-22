@@ -3,13 +3,14 @@ import { Link, useParams } from "react-router-dom";
 import { useProject } from "./api";
 import { useProjectMembers } from "../members/api";
 import { MembersDialog } from "../members/MembersDialog";
+import { ProjectSettingsDialog } from "./ProjectSettingsDialog";
 import { Board } from "../tasks/Board";
 import { Button } from "../../components/Button";
 import { projectColor } from "../../lib/projectColor";
 import { ApiError } from "../../lib/apiClient";
 import { buttonClasses } from "../../components/buttonStyles";
 import { Skeleton } from "../../components/Skeleton";
-import { UsersIcon } from "../../components/icons";
+import { SettingsIcon, UsersIcon } from "../../components/icons";
 
 export function ProjectBoardPage() {
   const { projectId } = useParams();
@@ -24,6 +25,7 @@ export function ProjectBoardPage() {
 function ProjectBoard({ projectId }: { projectId: string }) {
   const { data: project, isPending, isError, error } = useProject(projectId);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (isPending) {
     return (
@@ -79,7 +81,17 @@ function ProjectBoard({ projectId }: { projectId: string }) {
             )}
           </div>
         </div>
-        <MembersButton projectId={projectId} onClick={() => setMembersOpen(true)} />
+        <div className="flex shrink-0 items-center gap-2">
+          <MembersButton projectId={projectId} onClick={() => setMembersOpen(true)} />
+          <Button
+            variant="secondary"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Project settings"
+            title="Project settings"
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Keyed: the top-bar chips navigate between projects on the same route,
@@ -91,6 +103,13 @@ function ProjectBoard({ projectId }: { projectId: string }) {
           mid-confirmation across a close and reopen. */}
       {membersOpen && (
         <MembersDialog projectId={projectId} open onClose={() => setMembersOpen(false)} />
+      )}
+      {settingsOpen && (
+        <ProjectSettingsDialog
+          project={project}
+          open
+          onClose={() => setSettingsOpen(false)}
+        />
       )}
     </div>
   );

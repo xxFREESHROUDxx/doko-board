@@ -18,7 +18,13 @@ export interface CreateProjectInput {
   description?: string;
 }
 
-export type UpdateProjectInput = Partial<CreateProjectInput>;
+export interface UpdateProjectInput {
+  name?: string;
+  // null clears the description. UpdateProjectDto marks it @IsOptional(), which
+  // in class-validator skips null as well as undefined, so it reaches Prisma —
+  // and Project.description is nullable. Sending "" would store an empty string.
+  description?: string | null;
+}
 
 export function useProjects() {
   return useQuery({
