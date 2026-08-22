@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
+import { useActiveProjectId } from "../projects/useActiveProjectId";
+import { rememberProject } from "../projects/lastProject";
 import { TopBar } from "./TopBar";
 
 export function AppShell() {
@@ -9,6 +11,12 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const isFirstRender = useRef(true);
   const { pathname } = useLocation();
+  const activeProjectId = useActiveProjectId();
+
+  // So the sidebar's Board link still points somewhere after you navigate away.
+  useEffect(() => {
+    if (activeProjectId) rememberProject(activeProjectId);
+  }, [activeProjectId]);
 
   const openNav = () => {
     dialogRef.current?.showModal();

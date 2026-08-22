@@ -1,5 +1,7 @@
 import { Fragment, useId, type ComponentType } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useMatch } from "react-router-dom";
+import { useProjects } from "../projects/api";
+import { recallProject } from "../projects/lastProject";
 import { Avatar } from "../../components/Avatar";
 import { LogOutIcon, SettingsIcon, XIcon, type IconProps } from "../../components/icons";
 import { useAuth } from "../auth/authContext";
@@ -37,6 +39,44 @@ function NavItemLink({ to, end, label, icon: Icon, onNavigate }: NavItemLinkProp
           {label}
         </>
       )}
+    </NavLink>
+  );
+}
+
+/**
+ * The Board link, pointing at whichever project you are in — or were last in,
+ * falling back to your first project. Previously this was a fixed /projects
+ * link to a "coming soon" placeholder, so it was a dead end from the dashboard
+ * and lost its target the moment you visited any other section.
+ */
+function BoardNavLink({ label, icon: Icon, onNavigate }: Omit<NavItemLinkProps, "to">) {
+  const { data: projects } = useProjects();
+  const match = useMatch("/projects/:projectId");
+  const activeProjectId = match?.params.projectId;
+
+  // Only trust a remembered id that still exists — projects get deleted, and
+  // people are shared out of them.
+  const remembered = recallProject();
+  const fallback =
+    projects?.find((project) => project.id === remembered)?.id ?? projects?.[0]?.id;
+  const target = activeProjectId ?? fallback;
+
+  // No projects yet: the dashboard owns the "create your first one" prompt.
+  const to = target ? `/projects/${target}` : "/";
+  // NavLink would compare against this one project's URL, so any *other* board
+  // would read as inactive. The route match is the real answer.
+  const isActive = match !== null;
+
+  return (
+    <NavLink to={to} onClick={onNavigate} className={() => navLinkClass({ isActive })}>
+      {isActive && (
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-marigold-500"
+        />
+      )}
+      <Icon className="h-5 w-5 shrink-0" />
+      {label}
     </NavLink>
   );
 }
@@ -88,7 +128,13 @@ export function Sidebar({ onNavigate, onClose }: SidebarProps) {
             <ul aria-labelledby={`${idPrefix}-${group.id}`} className="flex flex-col gap-0.5">
               {group.items.map((item) => (
                 <li key={item.label}>
-                  {"soon" in item ? (
+                  {"board" in item ? (
+                    <BoardNavLink
+                      label={item.label}
+                      icon={item.icon}
+                      onNavigate={onNavigate}
+                    />
+                  ) : "soon" in item ? (
                     <span className="flex min-h-10 cursor-default select-none items-center gap-3 rounded-lg px-3 text-sm text-ink/40">
                       <item.icon className="h-5 w-5 shrink-0" />
                       {item.label}
