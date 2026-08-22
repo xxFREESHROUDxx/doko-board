@@ -1,5 +1,18 @@
 import { useMemo, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { useTasks } from "./api";
+import { useMoveTask } from "./useMoveTask";
+import { TaskCard } from "./TaskCard";
 import { BoardColumn } from "./BoardColumn";
 import { BoardToolbar } from "./BoardToolbar";
 import { CreateTaskModal } from "./CreateTaskModal";
@@ -19,6 +32,7 @@ import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { ClipboardIcon, PlusIcon, SearchIcon } from "../../components/icons";
+import { TASK_STATUSES as ALL_STATUSES } from "./taskMeta";
 import type { TaskStatus } from "../../types/api";
 
 const SKELETON_CARDS = ["a", "b", "c"];
@@ -36,6 +50,16 @@ export function Board({ projectId }: { projectId: string }) {
   // Held by id, not by value, so the drawer always renders the freshest copy
   // and closes by itself if the task disappears from the list.
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  const moveTask = useMoveTask(projectId);
+
+  // A short distance before a drag begins, so a click on the handle is still a
+  // click. Keyboard: focus the handle, Space to lift, arrows to move, Space to drop.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
 
   const tasks = tasksQuery.data;
 
@@ -48,6 +72,25 @@ export function Board({ projectId }: { projectId: string }) {
   );
 
   const selectedTask = tasks?.find((task) => task.id === selectedTaskId) ?? null;
+
+  const draggingTask = tasks?.find((task) => task.id === draggingId) ?? null;
+
+  const handleDragStart = (event: DragStartEvent) => setDraggingId(String(event.active.id));
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDraggingId(null);
+
+    const { active, over } = event;
+    if (!over) return; // dropped outside any column
+
+    const status = over.id as TaskStatus;
+    if (!ALL_STATUSES.includes(status)) return;
+
+    const task = tasks?.find((item) => item.id === active.id);
+    if (!task || task.status === status) return;
+
+    moveTask.mutate({ taskId: task.id, status, title: task.title });
+  };
 
   const clearFilters = () =>
     setFilters((current) => ({ ...current, search: "", priority: ANY, assignee: ANY }));
@@ -124,18 +167,41 @@ export function Board({ projectId }: { projectId: string }) {
           }
         />
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-4 lg:overflow-x-visible">
-          {TASK_STATUSES.map((status) => (
-            <BoardColumn
-              key={status}
-              status={status}
-              tasks={columns[status]}
-              memberMap={memberMap}
-              onSelectTask={(task) => setSelectedTaskId(task.id)}
-              onAddTask={setCreateStatus}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragCancel={() => setDraggingId(null)}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-4 lg:overflow-x-visible">
+            {TASK_STATUSES.map((status) => (
+              <BoardColumn
+                key={status}
+                status={status}
+                tasks={columns[status]}
+                memberMap={memberMap}
+                onSelectTask={(task) => setSelectedTaskId(task.id)}
+                onAddTask={setCreateStatus}
+              />
+            ))}
+          </div>
+
+          {/* Follows the cursor across columns; the original stays in place at
+              reduced opacity so the column doesn't reflow mid-drag. */}
+          <DragOverlay>
+            {draggingTask && (
+              <ul className="w-72 list-none">
+                <TaskCard
+                  task={draggingTask}
+                  memberMap={memberMap}
+                  onSelect={() => {}}
+                  draggable={false}
+                />
+              </ul>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
 
       <CreateTaskModal

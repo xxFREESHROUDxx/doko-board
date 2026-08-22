@@ -328,3 +328,28 @@ describe("Board assignee resolution", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("Board drag affordance", () => {
+  it("gives every card a labelled drag handle", async () => {
+    stubApi([task({ title: "Weave the basket" }), task({ title: "Carry the load" })]);
+    renderBoard();
+    await screen.findByText("Weave the basket");
+
+    // A handle rather than the whole card: the title is a stretched link over
+    // every pixel and the footer holds a select, so both would fight a
+    // whole-card drag. Being a real button also gives the keyboard sensor a
+    // focus target.
+    expect(screen.getByRole("button", { name: "Move Weave the basket" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move Carry the load" })).toBeInTheDocument();
+  });
+
+  it("keeps the card's own controls reachable alongside the handle", async () => {
+    stubApi([task({ title: "Weave the basket" })]);
+    renderBoard();
+    await screen.findByText("Weave the basket");
+
+    expect(screen.getByRole("button", { name: "Weave the basket" })).toBeEnabled();
+    expect(screen.getByLabelText("Status for Weave the basket")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Move Weave the basket" })).toBeEnabled();
+  });
+});

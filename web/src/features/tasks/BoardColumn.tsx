@@ -1,3 +1,4 @@
+import { useDroppable } from "@dnd-kit/core";
 import { TaskCard } from "./TaskCard";
 import { STATUS_DOTS, STATUS_LABELS } from "./taskMeta";
 import { PlusIcon } from "../../components/icons";
@@ -19,11 +20,16 @@ export function BoardColumn({
   onAddTask,
 }: BoardColumnProps) {
   const label = STATUS_LABELS[status];
+  // The droppable id is the status, so the drop handler needs no lookup table.
+  const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
     <section
+      ref={setNodeRef}
       aria-label={`${label} (${tasks.length})`}
-      className="flex w-72 shrink-0 flex-col rounded-xl bg-stone-100/70 p-3 lg:w-auto"
+      className={`flex w-72 shrink-0 flex-col rounded-xl p-3 ring-inset motion-safe:transition-[background-color,box-shadow] motion-safe:duration-150 lg:w-auto ${
+        isOver ? "bg-marigold-500/10 ring-2 ring-marigold-500/40" : "bg-stone-100/70"
+      }`}
     >
       <div className="flex items-center gap-2 px-1 pb-3">
         <h3 className="flex min-w-0 items-center gap-2 text-sm font-medium text-ink">
@@ -47,7 +53,7 @@ export function BoardColumn({
       </div>
 
       {tasks.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-stone-300 px-3 py-8 text-center text-xs text-ink/50">
+        <p className="rounded-lg border border-dashed border-stone-300 px-3 py-10 text-center text-xs text-ink/50">
           Nothing {label.toLowerCase()}
         </p>
       ) : (

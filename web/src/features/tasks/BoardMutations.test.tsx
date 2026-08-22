@@ -171,7 +171,7 @@ describe("Board task movement", () => {
     expect(within(column("Completed")).queryByText("Write the changelog")).toBeNull();
   });
 
-  it("marks the moving card busy without taking it out of the tab order", async () => {
+  it("moves the card before the server answers", async () => {
     let release = () => {};
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -184,18 +184,36 @@ describe("Board task movement", () => {
       "IN_PROGRESS",
     );
 
-    const moving = () => screen.getByLabelText("Status for Write the changelog");
-    await waitFor(() => expect(moving()).toHaveAttribute("aria-busy", "true"));
-
-    // Busy, never disabled: disabling the element that currently has focus blurs
-    // it, which would drop a keyboard user back to <body> mid-board.
-    expect(moving()).toBeEnabled();
-    expect(screen.getByLabelText("Status for Second task")).not.toHaveAttribute("aria-busy");
+    // Optimistic: waiting for a round trip before the card moves would make
+    // dragging feel broken, so the cache is written first.
+    await waitFor(() =>
+      expect(within(column("On progress")).getByText("Write the changelog")).toBeVisible(),
+    );
+    expect(within(column("Not started")).queryByText("Write the changelog")).toBeNull();
+    // The rest of the board is untouched.
+    expect(within(column("Not started")).getByText("Second task")).toBeVisible();
 
     release();
     await waitFor(() =>
       expect(within(column("On progress")).getByText("Write the changelog")).toBeVisible(),
     );
+  });
+
+  it("puts the card back and says why when the move is refused", async () => {
+    const { ApiError } = await import("../../lib/apiClient");
+    stubApi([task()], { patchError: new ApiError(403, "You cannot move this task") });
+    renderWithProviders(<Board projectId={PROJECT_ID} />);
+
+    await userEvent.selectOptions(
+      await screen.findByLabelText("Status for Write the changelog"),
+      "DONE",
+    );
+
+    expect(await screen.findByText("You cannot move this task")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(column("Not started")).getByText("Write the changelog")).toBeVisible(),
+    );
+    expect(within(column("Completed")).queryByText("Write the changelog")).toBeNull();
   });
 });
 

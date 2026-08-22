@@ -1,12 +1,13 @@
-import { useState, type ChangeEvent } from "react";
-import { useUpdateTask } from "./api";
+import type { ChangeEvent } from "react";
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import { useMoveTask } from "./useMoveTask";
 import { PRIORITY_LABELS, PRIORITY_TONES, STATUS_LABELS, TASK_STATUSES } from "./taskMeta";
 import { formatDueDate, isOverdue } from "../../lib/dates";
-import { ApiError } from "../../lib/apiClient";
-import { useToast } from "../../components/toastContext";
 import { AvatarStack } from "../../components/AvatarStack";
 import { Chip } from "../../components/Chip";
 import { Select } from "../../components/Select";
+import { GripIcon } from "../../components/icons";
 import type { Task, TaskStatus, User } from "../../types/api";
 
 interface TaskCardProps {
@@ -15,57 +16,29 @@ interface TaskCardProps {
    *  `undefined` means the member list hasn't resolved, not "no members". */
   memberMap: Map<string, User> | undefined;
   onSelect: (task: Task) => void;
+  /** False inside the drag overlay, which is a static copy of the card. */
+  draggable?: boolean;
 }
 
-export function TaskCard({ task, memberMap, onSelect }: TaskCardProps) {
-  // Each card owns its mutation. A board-level observer would be re-pointed by
-  // the next card to move, and query-core detaches it from the in-flight one —
-  // so an earlier card's failure would never reach any callback.
-  const updateTask = useUpdateTask(task.projectId);
-  const { showToast } = useToast();
-  // Shown while the PATCH is in flight, so the select doesn't snap back to the
-  // old status for a whole round trip.
-  const [pendingStatus, setPendingStatus] = useState<TaskStatus | null>(null);
+export function TaskCard({ task, memberMap, onSelect, draggable = true }: TaskCardProps) {
+  const moveTask = useMoveTask(task.projectId);
 
-  const overdue = task.dueDate !== null && task.status !== "DONE" && isOverdue(task.dueDate);
-
-  const handleStatusChange = async (event: ChangeEvent<HTMLSelectElement>) => {
+  const handleStatusChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const status = event.target.value as TaskStatus;
-    // Guarded here rather than by disabling the control: disabling the element
-    // that currently has focus blurs it, dropping a keyboard user back to <body>.
-    if (status === task.status || updateTask.isPending) return;
-
-    setPendingStatus(status);
-    try {
-      // mutateAsync, not mutate's callbacks: a successful move unmounts this card
-      // from its old column, and callbacks are skipped once the observer is gone.
-      await updateTask.mutateAsync({ taskId: task.id, data: { status } });
-      showToast(`"${task.title}" moved to ${STATUS_LABELS[status].toLowerCase()}`);
-    } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Couldn't move this task", "error");
-    } finally {
-      setPendingStatus(null);
-    }
+    if (status === task.status) return;
+    moveTask.mutate({ taskId: task.id, status, title: task.title });
   };
 
   return (
-    <li className="relative cursor-pointer rounded-xl border border-stone-200 bg-white p-3.5 shadow-sm motion-safe:transition-[box-shadow,border-color] motion-safe:duration-150 hover:border-stone-300 hover:shadow-md">
+    <CardShell task={task} draggable={draggable}>
       <div className="flex items-start justify-between gap-2">
         <Chip tone={PRIORITY_TONES[task.priority]}>{PRIORITY_LABELS[task.priority]}</Chip>
-        {task.dueDate && (
-          <span
-            className={`shrink-0 text-xs ${overdue ? "font-medium text-red-700" : "text-ink/60"}`}
-          >
-            {/* "Overdue" is spelled out — colour alone must never carry the meaning. */}
-            {overdue ? "Overdue · " : "Due "}
-            {formatDueDate(task.dueDate)}
-          </span>
-        )}
+        {task.dueDate && <DueDate task={task} />}
       </div>
 
       <h4 className="mt-2 text-sm font-medium text-ink">
         {/* Stretched link: the ::after overlay makes the whole card clickable while
-            keeping one real focus target. Controls below sit above it via z-10. */}
+            keeping one real focus target. Controls sit above it via z-10. */}
         <button
           type="button"
           onClick={() => onSelect(task)}
@@ -80,9 +53,8 @@ export function TaskCard({ task, memberMap, onSelect }: TaskCardProps) {
           hideLabel
           label={`Status for ${task.title}`}
           id={`task-status-${task.id}`}
-          value={pendingStatus ?? task.status}
+          value={task.status}
           onChange={handleStatusChange}
-          aria-busy={updateTask.isPending || undefined}
           className="text-xs"
         >
           {TASK_STATUSES.map((status) => (
@@ -93,7 +65,69 @@ export function TaskCard({ task, memberMap, onSelect }: TaskCardProps) {
         </Select>
         <Assignee task={task} memberMap={memberMap} />
       </div>
+    </CardShell>
+  );
+}
+
+interface CardShellProps {
+  task: Task;
+  draggable: boolean;
+  children: React.ReactNode;
+}
+
+/**
+ * The card frame plus its drag affordance.
+ *
+ * Dragging is on a handle rather than the whole card: the title is a stretched
+ * link covering every pixel, and the footer holds a select, so a whole-card
+ * drag would be fighting both. A handle is also a real button, which gives
+ * dnd-kit's keyboard sensor something to focus.
+ */
+function CardShell({ task, draggable, children }: CardShellProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } =
+    useDraggable({ id: task.id, disabled: !draggable });
+
+  const base =
+    "relative cursor-pointer rounded-xl border border-stone-200 bg-white p-3.5 shadow-sm motion-safe:transition-[box-shadow,border-color] motion-safe:duration-150 hover:border-stone-300 hover:shadow-md";
+
+  return (
+    <li
+      ref={setNodeRef}
+      // The overlay renders the card being dragged; leave a gap behind it rather
+      // than a duplicate. Not display:none — the column would reflow mid-drag.
+      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : undefined }}
+      className={base}
+    >
+      {draggable && (
+        <button
+          ref={setActivatorNodeRef}
+          {...listeners}
+          {...attributes}
+          type="button"
+          aria-label={`Move ${task.title}`}
+          className="absolute right-1.5 top-1.5 z-10 inline-flex h-7 w-7 cursor-grab touch-none items-center justify-center rounded-md text-ink/30 hover:bg-stone-100 hover:text-ink/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marigold-500/50 active:cursor-grabbing motion-safe:transition-colors motion-safe:duration-150"
+        >
+          <GripIcon className="h-4 w-4" />
+        </button>
+      )}
+      {children}
     </li>
+  );
+}
+
+function DueDate({ task }: { task: Task }) {
+  const overdue = task.dueDate !== null && task.status !== "DONE" && isOverdue(task.dueDate);
+  if (task.dueDate === null) return null;
+
+  return (
+    // Right padding clears the grip handle in the corner.
+    <span
+      className={`shrink-0 pr-7 text-xs ${overdue ? "font-medium text-red-700" : "text-ink/60"}`}
+    >
+      {/* "Overdue" is spelled out — colour alone must never carry the meaning. */}
+      {overdue ? "Overdue · " : "Due "}
+      {formatDueDate(task.dueDate)}
+    </span>
   );
 }
 
