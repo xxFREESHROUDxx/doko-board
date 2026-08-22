@@ -214,3 +214,87 @@ describe("MembersDialog", () => {
     expect(await screen.findByText("Admins cannot remove other admins")).toBeInTheDocument();
   });
 });
+
+describe("MembersDialog remove confirmation focus", () => {
+  // Confirming swaps the focused trash button for a pair of buttons, which
+  // unmounts the active element. Without a deliberate move, focus falls to
+  // <body> and a keyboard user is dumped out of the dialog mid-action.
+  it("moves focus onto Cancel when the confirmation opens", async () => {
+    stubApi(roster("OWNER"));
+    renderDialog();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove Grace Hopper/ }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus(),
+    );
+    // Focus lands on the safe choice, not the destructive one.
+    expect(screen.getByRole("button", { name: "Remove" })).not.toHaveFocus();
+  });
+
+  it("hands focus back to the remove button when the confirmation is dismissed", async () => {
+    stubApi(roster("OWNER"));
+    renderDialog();
+
+    const remove = await screen.findByRole("button", { name: /Remove Grace Hopper/ });
+    await userEvent.click(remove);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Remove Grace Hopper/ })).toHaveFocus(),
+    );
+  });
+
+  it("returns focus to the remove button after a refused removal", async () => {
+    const { ApiError } = await import("../../lib/apiClient");
+    stubApi(roster("ADMIN"), {
+      [`DELETE /projects/${PROJECT_ID}/members/${grace.id}`]: () => {
+        throw new ApiError(403, "Admins cannot remove other admins");
+      },
+    });
+    renderDialog();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove Grace Hopper/ }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    // The confirmation collapses on failure, so focus must come back with it.
+    expect(await screen.findByText("Admins cannot remove other admins")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Remove Grace Hopper/ })).toHaveFocus(),
+    );
+  });
+
+  it("announces the confirmation in a live region", async () => {
+    stubApi(roster("OWNER"));
+    renderDialog();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove Grace Hopper/ }),
+    );
+
+    const status = screen.getByRole("status");
+    expect(within(status).getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    expect(within(status).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it("confirms one row at a time", async () => {
+    const linus: User = {
+      id: "44444444-4444-4444-8444-444444444444",
+      email: "linus@example.com",
+      username: "Linus Pauling",
+    };
+    stubApi([member(testUser, "OWNER"), member(grace, "MEMBER"), member(linus, "VIEWER")]);
+    renderDialog();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove Grace Hopper/ }),
+    );
+    // The other rows keep their plain trash button.
+    expect(screen.getByRole("button", { name: /Remove Linus Pauling/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Cancel" })).toHaveLength(1);
+  });
+});
