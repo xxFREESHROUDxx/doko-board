@@ -17,7 +17,7 @@ import { useToast } from "../../components/toastContext";
 import { Button } from "../../components/Button";
 import { Chip } from "../../components/Chip";
 import { Drawer } from "../../components/Drawer";
-import { MarkdownEditor } from "../../components/MarkdownEditor";
+import { LazyMarkdownEditor } from "../../components/LazyMarkdownEditor";
 import { Select } from "../../components/Select";
 import { CheckIcon } from "../../components/icons";
 import type { Task, TaskPriority, TaskStatus } from "../../types/api";
@@ -210,7 +210,7 @@ function TaskDetail({ projectId, task, onClose }: TaskDetailProps) {
         )}
       </div>
 
-      <MarkdownEditor
+      <LazyMarkdownEditor
         label="Description"
         value={description}
         onChange={setDescription}

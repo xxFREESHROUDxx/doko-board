@@ -118,11 +118,14 @@ beforeEach(() => {
 });
 
 describe("TaskDetailDrawer editing", () => {
-  it("opens on the task's current values with focus in the title", () => {
+  it("opens on the task's current values with focus in the title", async () => {
     setup();
 
     expect(screen.getByLabelText("Title")).toHaveValue("Draft the release notes");
-    expect(screen.getByLabelText("Description")).toHaveValue("Cover the board changes");
+    // The Markdown editor is a lazy chunk, so it arrives a tick after the rest.
+    expect(await screen.findByLabelText("Description")).toHaveValue(
+      "Cover the board changes",
+    );
     expect(screen.getByLabelText("Status")).toHaveValue("IN_PROGRESS");
     expect(screen.getByLabelText("Priority")).toHaveValue("HIGH");
     // The API's instant round-trips into the yyyy-mm-dd the date input wants.
@@ -131,10 +134,10 @@ describe("TaskDetailDrawer editing", () => {
     expect(screen.getByLabelText("Title")).toHaveFocus();
   });
 
-  it("leaves the optional fields blank when the task has none set", () => {
+  it("leaves the optional fields blank when the task has none set", async () => {
     setup(task({ description: null, dueDate: null, assigneeId: null }));
 
-    expect(screen.getByLabelText("Description")).toHaveValue("");
+    expect(await screen.findByLabelText("Description")).toHaveValue("");
     expect(screen.getByLabelText("Due date")).toHaveValue("");
     expect(screen.getByLabelText("Assignee")).toHaveValue("");
   });

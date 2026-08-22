@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -12,6 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { useTasks } from "./api";
 import { useMoveTask } from "./useMoveTask";
+import { preloadMarkdownEditor } from "../../components/markdownEditorLoader";
 import { TaskCard } from "./TaskCard";
 import { BoardColumn } from "./BoardColumn";
 import { BoardToolbar } from "./BoardToolbar";
@@ -53,6 +54,10 @@ export function Board({ projectId }: { projectId: string }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const moveTask = useMoveTask(projectId);
+
+  // The task panel's editor is a separate chunk. Fetch it now, while the user
+  // is still reading the board, rather than when they click a card.
+  useEffect(preloadMarkdownEditor, []);
 
   // A short distance before a drag begins, so a click on the handle is still a
   // click. Keyboard: focus the handle, Space to lift, arrows to move, Space to drop.

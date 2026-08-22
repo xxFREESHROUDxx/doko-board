@@ -91,6 +91,9 @@ describe("CreateTaskModal", () => {
     stubApi();
     renderModal();
 
+    // The Markdown editor is a lazy chunk, so it arrives a tick after the rest.
+    await screen.findByLabelText("Description (optional)");
+
     for (const label of [
       "Title",
       "Description (optional)",

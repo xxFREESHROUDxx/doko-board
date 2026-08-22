@@ -8,7 +8,7 @@ import { ApiError } from "../../lib/apiClient";
 import { Button } from "../../components/Button";
 import { Select } from "../../components/Select";
 import { TextField } from "../../components/TextFields";
-import { MarkdownEditor } from "../../components/MarkdownEditor";
+import { LazyMarkdownEditor } from "../../components/LazyMarkdownEditor";
 
 interface TaskFormProps {
   projectId: string;
@@ -73,7 +73,7 @@ export function TaskForm({
         control={control}
         name="description"
         render={({ field }) => (
-          <MarkdownEditor
+          <LazyMarkdownEditor
             label="Description (optional)"
             value={field.value}
             onChange={field.onChange}

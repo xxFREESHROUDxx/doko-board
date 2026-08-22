@@ -6,7 +6,7 @@ type TextareaProps = Omit<
   "value" | "onChange" | "id"
 >;
 
-interface MarkdownEditorProps extends TextareaProps {
+export interface MarkdownEditorProps extends TextareaProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
