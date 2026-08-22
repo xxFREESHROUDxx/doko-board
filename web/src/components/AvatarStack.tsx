@@ -1,7 +1,12 @@
 import { Avatar } from "./Avatar";
 
+export interface AvatarPerson {
+  name: string;
+  avatarUrl?: string | null;
+}
+
 interface AvatarStackProps {
-  names: string[];
+  people: AvatarPerson[];
   /** Accessible name for the whole cluster, e.g. "Assigned to Ada, Grace". */
   label: string;
   /** Avatars shown before collapsing the rest into a "+N" bubble. */
@@ -15,11 +20,17 @@ const overflowSize = {
   md: "h-9 w-9 text-xs",
 } as const;
 
-export function AvatarStack({ names, label, max = 3, size = "sm", className }: AvatarStackProps) {
-  if (names.length === 0) return null;
+export function AvatarStack({
+  people,
+  label,
+  max = 3,
+  size = "sm",
+  className,
+}: AvatarStackProps) {
+  if (people.length === 0) return null;
 
-  const shown = names.slice(0, max);
-  const overflow = names.length - shown.length;
+  const shown = people.slice(0, max);
+  const overflow = people.length - shown.length;
 
   return (
     // One label for the whole cluster: the individual avatars are decorative, and
@@ -29,13 +40,14 @@ export function AvatarStack({ names, label, max = 3, size = "sm", className }: A
       role="img"
       aria-label={label}
     >
-      {shown.map((name, index) => (
+      {shown.map((person, index) => (
         <Avatar
-          key={name}
-          name={name}
+          key={person.name}
+          name={person.name}
+          src={person.avatarUrl}
           size={size}
           aria-hidden="true"
-          title={name}
+          title={person.name}
           className={index === 0 ? "ring-2 ring-white" : "-ml-2 ring-2 ring-white"}
         />
       ))}

@@ -7,12 +7,15 @@ export function ProjectMemberAvatars({ projectId }: { projectId: string }) {
 
   if (!members || members.length === 0) return null;
 
-  const names = members.map((member) => member.user.username);
+  const people = members.map((member) => ({
+    name: member.user.username,
+    avatarUrl: member.user.avatarUrl,
+  }));
 
   return (
     <AvatarStack
-      names={names}
-      label={`Project members: ${names.join(", ")}`}
+      people={people}
+      label={`Project members: ${people.map((person) => person.name).join(", ")}`}
       max={4}
       size="md"
       className="hidden sm:flex"

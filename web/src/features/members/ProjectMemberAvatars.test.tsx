@@ -18,6 +18,7 @@ function member(index: number, username: string): ProjectMember {
     id: `user-${index}`,
     email: `user${index}@example.com`,
     username,
+    avatarUrl: null,
   };
   return { id: `pm-${index}`, role: "MEMBER", joinedAt: "2026-01-01T00:00:00.000Z", user };
 }
@@ -41,7 +42,7 @@ describe("ProjectMemberAvatars", () => {
 
     const cluster = await screen.findByRole("img", { name: /^Project members:/ });
     expect(cluster).toHaveAccessibleName(
-      "Project members: Ada Lovelace, Grace Hopper, Linus Pauling, Marie Curie, Alan Turing",
+      "Project members: ada_lovelace, Grace Hopper, Linus Pauling, Marie Curie, Alan Turing",
     );
     // Four avatars, then "+1" — the individual bubbles stay decorative.
     expect(cluster).toHaveTextContent("+1");

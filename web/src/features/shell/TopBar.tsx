@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { useMatches } from "react-router-dom";
-import { Avatar } from "../../components/Avatar";
 import { MenuIcon } from "../../components/icons";
 import { useAuth } from "../auth/authContext";
 import { ProjectChips } from "../projects/ProjectChips";
 import { useActiveProjectId } from "../projects/useActiveProjectId";
 import { ProjectMemberAvatars } from "../members/ProjectMemberAvatars";
 import { isRouteHandle } from "./routeHandle";
+import { UserMenu } from "./UserMenu";
 
 interface TopBarProps {
   onOpenNav: () => void;
@@ -49,7 +49,7 @@ export function TopBar({ onOpenNav, navOpen }: TopBarProps) {
         {activeProjectId && user && (
           <span aria-hidden="true" className="hidden h-6 w-px bg-stone-200 sm:block" />
         )}
-        {user && <Avatar name={user.username} title={user.username} />}
+        <UserMenu />
       </div>
     </header>
   );

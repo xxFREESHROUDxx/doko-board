@@ -156,5 +156,10 @@ function Assignee({ task, memberMap }: Pick<TaskCardProps, "task" | "memberMap">
     );
   }
 
-  return <AvatarStack names={[assignee.username]} label={`Assigned to ${assignee.username}`} />;
+  return (
+    <AvatarStack
+      people={[{ name: assignee.username, avatarUrl: assignee.avatarUrl }]}
+      label={`Assigned to ${assignee.username}`}
+    />
+  );
 }

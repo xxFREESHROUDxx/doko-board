@@ -23,6 +23,7 @@ const grace: User = {
   id: "33333333-3333-4333-8333-333333333333",
   email: "grace@example.com",
   username: "Grace Hopper",
+  avatarUrl: null,
 };
 
 /** Members list with the signed-in user holding `myRole`. */
@@ -286,6 +287,7 @@ describe("MembersDialog remove confirmation focus", () => {
       id: "44444444-4444-4444-8444-444444444444",
       email: "linus@example.com",
       username: "Linus Pauling",
+      avatarUrl: null,
     };
     stubApi([member(testUser, "OWNER"), member(grace, "MEMBER"), member(linus, "VIEWER")]);
     renderDialog();

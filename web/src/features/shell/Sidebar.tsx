@@ -125,7 +125,7 @@ export function Sidebar({ onNavigate, onClose }: SidebarProps) {
           <NavItemLink to="/settings" label="Settings" icon={SettingsIcon} onNavigate={onNavigate} />
           {user && (
             <div className="mt-1 flex items-center gap-3 rounded-lg p-2">
-              <Avatar name={user.username} aria-hidden="true" />
+              <Avatar name={user.username} src={user.avatarUrl} aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-ink">{user.username}</p>
                 <p className="truncate text-xs text-ink/50">{user.email}</p>

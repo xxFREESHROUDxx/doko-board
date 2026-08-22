@@ -2,6 +2,8 @@ import type { HTMLAttributes } from "react";
 
 interface AvatarProps extends HTMLAttributes<HTMLSpanElement> {
   name: string;
+  /** A data URI from the user's profile. Falls back to initials when absent. */
+  src?: string | null;
   size?: "sm" | "md";
 }
 
@@ -19,11 +21,18 @@ function initialsOf(name: string): string {
     .join("");
 }
 
-export function Avatar({ name, size = "md", className, ...props }: AvatarProps) {
-  const classes = `flex ${sizeClasses[size]} shrink-0 items-center justify-center rounded-full bg-pine-700 font-medium text-paper`;
+export function Avatar({ name, src, size = "md", className, ...props }: AvatarProps) {
+  const classes = `flex ${sizeClasses[size]} shrink-0 items-center justify-center overflow-hidden rounded-full bg-pine-700 font-medium text-paper`;
+
   return (
     <span className={className ? `${classes} ${className}` : classes} {...props}>
-      {initialsOf(name)}
+      {src ? (
+        // alt="" — the picture carries no information the surrounding label
+        // doesn't already give, and callers name the person themselves.
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        initialsOf(name)
+      )}
     </span>
   );
 }

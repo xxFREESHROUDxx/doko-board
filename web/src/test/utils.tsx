@@ -9,7 +9,10 @@ import type { User } from "../types/api";
 export const testUser: User = {
   id: "11111111-1111-4111-8111-111111111111",
   email: "ada@example.com",
-  username: "Ada Lovelace",
+  // Matches the API's rule (^[a-zA-Z0-9_]+$). A display name with a space would
+  // be rejected by the profile form, which mirrors that rule.
+  username: "ada_lovelace",
+  avatarUrl: null,
 };
 
 /** Retries and background refetches make assertions flaky; turn them off per test. */
@@ -29,6 +32,7 @@ function stubAuth(user: User | null): AuthContextValue {
     isAuthenticated: user !== null,
     login: async () => {},
     register: async () => {},
+    updateUser: () => {},
     logout: () => {},
   };
 }
