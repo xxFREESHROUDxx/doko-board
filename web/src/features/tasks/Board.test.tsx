@@ -166,3 +166,100 @@ describe("Board", () => {
     expect(mockedApiRequest).toHaveBeenCalledWith(`/projects/${PROJECT_ID}/tasks`);
   });
 });
+
+describe("Board filtering and sorting", () => {
+  function tasksFetchCount() {
+    return mockedApiRequest.mock.calls.filter(
+      (call) => call[0] === `/projects/${PROJECT_ID}/tasks`,
+    ).length;
+  }
+
+  it("narrows the board by title without refetching", async () => {
+    stubApi([task({ title: "Weave the basket" }), task({ title: "Carry the load" })]);
+    renderBoard();
+    await screen.findByText("Weave the basket");
+    const before = tasksFetchCount();
+
+    await userEvent.type(screen.getByLabelText("Search tasks by title"), "basket");
+
+    expect(screen.queryByText("Carry the load")).not.toBeInTheDocument();
+    expect(screen.getByText("Weave the basket")).toBeInTheDocument();
+    expect(tasksFetchCount()).toBe(before);
+  });
+
+  it("filters by priority", async () => {
+    stubApi([
+      task({ title: "urgent one", priority: "URGENT" }),
+      task({ title: "low one", priority: "LOW" }),
+    ]);
+    renderBoard();
+    await screen.findByText("urgent one");
+
+    await userEvent.selectOptions(screen.getByLabelText("Filter by priority"), "URGENT");
+
+    expect(screen.getByText("urgent one")).toBeInTheDocument();
+    expect(screen.queryByText("low one")).not.toBeInTheDocument();
+  });
+
+  it("filters to unassigned tasks", async () => {
+    stubApi([
+      task({ title: "mine", assigneeId: testUser.id }),
+      task({ title: "nobody's", assigneeId: null }),
+    ]);
+    renderBoard();
+    await screen.findByText("mine");
+
+    await userEvent.selectOptions(screen.getByLabelText("Filter by assignee"), "UNASSIGNED");
+
+    expect(screen.getByText("nobody's")).toBeInTheDocument();
+    expect(screen.queryByText("mine")).not.toBeInTheDocument();
+  });
+
+  it("reorders a column when the sort changes", async () => {
+    stubApi([
+      task({ title: "banana", priority: "URGENT" }),
+      task({ title: "apple", priority: "LOW" }),
+    ]);
+    renderBoard();
+    await screen.findByText("banana");
+
+    const headings = () =>
+      within(column("Not started"))
+        .getAllByRole("heading", { level: 4 })
+        .map((node) => node.textContent);
+
+    expect(headings()).toEqual(["banana", "apple"]);
+    await userEvent.selectOptions(screen.getByLabelText("Sort tasks by"), "TITLE");
+    expect(headings()).toEqual(["apple", "banana"]);
+  });
+
+  it("reports how much of the board is showing", async () => {
+    stubApi([task({ title: "keep me" }), task({ title: "hide me" })]);
+    renderBoard();
+    await screen.findByText("keep me");
+
+    await userEvent.type(screen.getByLabelText("Search tasks by title"), "keep");
+
+    expect(screen.getByText("Showing 1 of 2 tasks")).toBeInTheDocument();
+  });
+
+  it("offers a way back when nothing matches", async () => {
+    stubApi([task({ title: "Weave the basket" })]);
+    renderBoard();
+    await screen.findByText("Weave the basket");
+
+    await userEvent.type(screen.getByLabelText("Search tasks by title"), "nothing matches this");
+    expect(await screen.findByText("No matching tasks")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(await screen.findByText("Weave the basket")).toBeInTheDocument();
+  });
+
+  it("keeps the empty-board invitation distinct from an empty filter result", async () => {
+    stubApi([]);
+    renderBoard();
+
+    expect(await screen.findByText("No tasks yet")).toBeInTheDocument();
+    expect(screen.queryByText("No matching tasks")).not.toBeInTheDocument();
+  });
+});

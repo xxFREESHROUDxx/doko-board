@@ -15,8 +15,15 @@ export function compareTasks(a: Task, b: Task): number {
   return b.createdAt.localeCompare(a.createdAt);
 }
 
-/** Splits a flat task list into the four board columns, each sorted. */
-export function groupTasksByStatus(tasks: Task[]): TasksByStatus {
+/**
+ * Splits a flat task list into the four board columns, each sorted. The
+ * comparator is a parameter so the toolbar's sort control can swap it without
+ * this function knowing anything about filters.
+ */
+export function groupTasksByStatus(
+  tasks: Task[],
+  compare: (a: Task, b: Task) => number = compareTasks,
+): TasksByStatus {
   const groups: TasksByStatus = { TODO: [], IN_PROGRESS: [], IN_REVIEW: [], DONE: [] };
 
   for (const task of tasks) {
@@ -24,7 +31,7 @@ export function groupTasksByStatus(tasks: Task[]): TasksByStatus {
     groups[task.status]?.push(task);
   }
   for (const status of TASK_STATUSES) {
-    groups[status].sort(compareTasks);
+    groups[status].sort(compare);
   }
 
   return groups;

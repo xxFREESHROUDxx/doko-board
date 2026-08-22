@@ -1,28 +1,39 @@
 import { useMemo, useState } from "react";
 import { useTasks, useUpdateTask } from "./api";
 import { BoardColumn } from "./BoardColumn";
+import { BoardToolbar } from "./BoardToolbar";
 import { CreateTaskModal } from "./CreateTaskModal";
 import { TaskDetailDrawer } from "./TaskDetailDrawer";
 import { groupTasksByStatus } from "./boardModel";
+import {
+  ANY,
+  DEFAULT_FILTERS,
+  comparatorFor,
+  filterTasks,
+  type BoardFilters,
+} from "./boardFilters";
 import { STATUS_LABELS, TASK_STATUSES } from "./taskMeta";
-import { useMemberMap } from "../members/api";
+import { useMemberMap, useProjectMembers } from "../members/api";
 import { ApiError } from "../../lib/apiClient";
 import { useToast } from "../../components/toastContext";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
-import { ClipboardIcon, PlusIcon } from "../../components/icons";
+import { ClipboardIcon, PlusIcon, SearchIcon } from "../../components/icons";
 import type { Task, TaskStatus } from "../../types/api";
 
 const SKELETON_CARDS = ["a", "b", "c"];
 
 export function Board({ projectId }: { projectId: string }) {
   const tasksQuery = useTasks(projectId);
-  // Same cache entry the members dialog uses; assignee lookups come from here.
+  // Same cache entry, two shapes: the map resolves assignees on cards, the list
+  // fills the assignee filter. TanStack dedupes them into one request.
   const { data: memberMap } = useMemberMap(projectId);
+  const { data: members } = useProjectMembers(projectId);
   const updateTask = useUpdateTask(projectId);
   const { showToast } = useToast();
 
+  const [filters, setFilters] = useState<BoardFilters>(DEFAULT_FILTERS);
   // The status the create modal opens with; null means the modal is closed.
   const [createStatus, setCreateStatus] = useState<TaskStatus | null>(null);
   // Held by id, not by value, so the drawer always renders the freshest copy
@@ -30,8 +41,19 @@ export function Board({ projectId }: { projectId: string }) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const tasks = tasksQuery.data;
-  const columns = useMemo(() => groupTasksByStatus(tasks ?? []), [tasks]);
+
+  // Filtering and sorting run over the cached list — no request is made for any
+  // of the toolbar controls.
+  const visibleTasks = useMemo(() => filterTasks(tasks ?? [], filters), [tasks, filters]);
+  const columns = useMemo(
+    () => groupTasksByStatus(visibleTasks, comparatorFor(filters.sort)),
+    [visibleTasks, filters.sort],
+  );
+
   const selectedTask = tasks?.find((task) => task.id === selectedTaskId) ?? null;
+
+  const clearFilters = () =>
+    setFilters((current) => ({ ...current, search: "", priority: ANY, assignee: ANY }));
 
   const handleStatusChange = (task: Task, status: TaskStatus) => {
     updateTask.mutate(
@@ -49,12 +71,14 @@ export function Board({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-end">
-        <Button onClick={() => setCreateStatus("TODO")}>
-          <PlusIcon className="h-4 w-4" />
-          New task
-        </Button>
-      </div>
+      <BoardToolbar
+        filters={filters}
+        onChange={setFilters}
+        members={members}
+        onNewTask={() => setCreateStatus("TODO")}
+        visibleCount={visibleTasks.length}
+        totalCount={tasks?.length ?? 0}
+      />
 
       {tasksQuery.isPending ? (
         <div role="status" className="flex gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-4">
@@ -100,6 +124,19 @@ export function Board({ projectId }: { projectId: string }) {
             <Button onClick={() => setCreateStatus("TODO")}>
               <PlusIcon className="h-4 w-4" />
               Create task
+            </Button>
+          }
+        />
+      ) : visibleTasks.length === 0 ? (
+        <EmptyState
+          as="h3"
+          className="min-h-[45vh]"
+          icon={SearchIcon}
+          title="No matching tasks"
+          description="Nothing on this board matches the current search and filters."
+          action={
+            <Button variant="secondary" onClick={clearFilters}>
+              Clear filters
             </Button>
           }
         />
