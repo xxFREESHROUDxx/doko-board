@@ -18,6 +18,24 @@ body {
 }
 
 /*
+ * Tailwind v4's preflight sets `cursor: default` on buttons, so every control
+ * in the app reads as non-interactive unless it opts back in. Fixing it here
+ * rather than adding a class to each button keeps new ones correct by default.
+ * Disabled controls keep the default arrow — a pointer would promise something
+ * that will not happen.
+ */
+@layer base {
+  button:not(:disabled),
+  select:not(:disabled),
+  summary,
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="tab"] {
+    cursor: pointer;
+  }
+}
+
+/*
  * Markdown output (task and project descriptions). Tailwind's preflight strips
  * heading sizes, list markers and quote styling, so rendered Markdown needs them
  * put back. Scoped to .dk-prose so it can never leak into the app chrome.
