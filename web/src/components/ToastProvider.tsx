@@ -26,6 +26,7 @@ const ICON_STYLES: Record<ToastTone, string> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const hostRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(0);
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
@@ -59,6 +60,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /**
+   * A modal <dialog> is promoted to the top layer, and its ::backdrop paints over
+   * every normal-flow element whatever the z-index — so a plain fixed host would
+   * sit *behind* any open dialog, and (being outside the dialog) would be inert,
+   * so the live regions would not be announced either. Promoting the host to the
+   * top layer as a popover fixes both. Re-promoting on every change keeps it
+   * above dialogs that opened since the last toast: the top layer is ordered by
+   * promotion, not by z-index.
+   */
+  useEffect(() => {
+    const host = hostRef.current;
+    // No popover API: leave the attribute off entirely. The UA stylesheet hides
+    // [popover] until it is shown, so setting it without being able to call
+    // showPopover() would hide every toast permanently. Without it the host
+    // still renders normally, which is correct whenever no dialog is open.
+    if (!host || typeof host.showPopover !== "function") return;
+    if (!host.hasAttribute("popover")) host.setAttribute("popover", "manual");
+    try {
+      if (host.matches(":popover-open")) host.hidePopover();
+      if (toasts.length > 0) host.showPopover();
+    } catch {
+      // Popover support varies; without it the host still renders in the normal
+      // layer, which is correct whenever no dialog is open.
+    }
+  }, [toasts]);
+
   const value = useMemo<ToastContextValue>(() => ({ showToast }), [showToast]);
 
   return (
@@ -66,7 +93,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {/* Both regions stay mounted: a live region inserted at the same time as its
           content is not reliably announced. Errors interrupt, successes wait. */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 p-4 sm:items-end">
+      {/* The explicit resets neutralise the UA popover styles (inset, margin,
+          width, border, padding, background) that would otherwise centre this. */}
+      <div
+        ref={hostRef}
+        className="pointer-events-none fixed inset-x-0 bottom-0 top-auto z-50 m-0 flex h-auto w-full max-w-none flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-4 sm:items-end"
+      >
         <ToastRegion
           politeness="polite"
           toasts={toasts.filter((toast) => toast.tone === "success")}
