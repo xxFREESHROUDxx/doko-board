@@ -33,6 +33,14 @@ export function BoardToolbar({
   const fieldId = useId();
   const filtering = hasActiveFilters(filters);
 
+  // A controlled <select> whose value matches no <option> renders empty. That
+  // happens when the filtered-on member is removed, or before the list loads.
+  const assigneeKnown =
+    filters.assignee === ANY ||
+    filters.assignee === UNASSIGNED ||
+    (members?.some((member) => member.user.id === filters.assignee) ?? false);
+  const assigneeValue = assigneeKnown ? filters.assignee : ANY;
+
   // Every control edits one key of the same object, so the caller only ever
   // handles a whole BoardFilters and re-derives the board from it.
   const set = <K extends keyof BoardFilters>(key: K, value: BoardFilters[K]) =>
@@ -80,7 +88,7 @@ export function BoardToolbar({
           hideLabel
           label="Filter by assignee"
           id={`${fieldId}-assignee`}
-          value={filters.assignee}
+          value={assigneeValue}
           onChange={(event) => set("assignee", event.target.value)}
           className="text-sm"
         >

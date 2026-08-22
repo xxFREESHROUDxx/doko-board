@@ -82,7 +82,9 @@ function ProjectBoard({ projectId }: { projectId: string }) {
         <MembersButton projectId={projectId} onClick={() => setMembersOpen(true)} />
       </div>
 
-      <Board projectId={projectId} />
+      {/* Keyed: the top-bar chips navigate between projects on the same route,
+          so without this the board keeps the previous project's filters. */}
+      <Board key={projectId} projectId={projectId} />
 
       {/* Mounted only while open: Modal always renders its children, so a
           persistent dialog would keep a half-typed email and a row stuck
