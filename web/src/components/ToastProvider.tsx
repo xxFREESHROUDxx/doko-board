@@ -77,12 +77,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     // still renders normally, which is correct whenever no dialog is open.
     if (!host || typeof host.showPopover !== "function") return;
     if (!host.hasAttribute("popover")) host.setAttribute("popover", "manual");
+    // Re-promoting blurs anything focused inside the host, so don't yank a
+    // Dismiss button out from under someone just because another toast landed.
+    const holdsFocus = host.contains(document.activeElement);
+
     try {
-      if (host.matches(":popover-open")) host.hidePopover();
-      if (toasts.length > 0) host.showPopover();
+      if (!holdsFocus && host.matches(":popover-open")) host.hidePopover();
+      if (toasts.length > 0 && !host.matches(":popover-open")) host.showPopover();
     } catch {
-      // Popover support varies; without it the host still renders in the normal
-      // layer, which is correct whenever no dialog is open.
+      // The attribute is already set by this point, and [popover] is display:none
+      // until shown — so failing here would hide every toast permanently. Drop
+      // back to a plain fixed host, which is visible and correct with no dialog.
+      host.removeAttribute("popover");
     }
   }, [toasts]);
 

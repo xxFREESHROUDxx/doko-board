@@ -107,3 +107,53 @@ describe("ToastProvider auto-dismiss", () => {
     expect(screen.queryByText("Something broke")).not.toBeInTheDocument();
   });
 });
+
+describe("ToastProvider top-layer promotion", () => {
+  // jsdom implements neither showPopover nor :popover-open, so this whole path
+  // is dead in the suite unless we stand the API up ourselves.
+  function stubPopoverApi(showPopover: () => void) {
+    const proto = HTMLDivElement.prototype as unknown as Record<string, unknown>;
+    proto.showPopover = showPopover;
+    proto.hidePopover = () => {};
+    return () => {
+      delete proto.showPopover;
+      delete proto.hidePopover;
+    };
+  }
+
+  function toastHost(): HTMLElement | null {
+    return document.querySelector("[aria-live='polite']")?.parentElement ?? null;
+  }
+
+  it("promotes the host so toasts clear a modal dialog's backdrop", async () => {
+    const showPopover = vi.fn();
+    const restore = stubPopoverApi(showPopover);
+    try {
+      renderTrigger();
+      await userEvent.click(screen.getByRole("button", { name: "Succeed" }));
+      await screen.findByText("Task created");
+
+      expect(showPopover).toHaveBeenCalled();
+      expect(toastHost()).toHaveAttribute("popover", "manual");
+    } finally {
+      restore();
+    }
+  });
+
+  it("falls back to a plain host rather than hiding every toast forever", async () => {
+    // [popover] is display:none until shown. If promotion throws after the
+    // attribute is set, keeping it would make toasts permanently invisible.
+    const restore = stubPopoverApi(() => {
+      throw new Error("popover refused");
+    });
+    try {
+      renderTrigger();
+      await userEvent.click(screen.getByRole("button", { name: "Succeed" }));
+
+      expect(await screen.findByText("Task created")).toBeInTheDocument();
+      expect(toastHost()).not.toHaveAttribute("popover");
+    } finally {
+      restore();
+    }
+  });
+});
