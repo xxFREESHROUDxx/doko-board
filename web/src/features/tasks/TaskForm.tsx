@@ -1,13 +1,8 @@
 import { useId, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { taskSchema, type TaskFormValues } from "./taskSchemas";
-import {
-  PRIORITY_LABELS,
-  STATUS_LABELS,
-  TASK_PRIORITIES,
-  TASK_STATUSES,
-} from "./taskMeta";
+import { PRIORITY_LABELS, STATUS_LABELS, TASK_PRIORITIES, TASK_STATUSES } from "./taskMeta";
 import { useProjectMembers } from "../members/api";
 import { ApiError } from "../../lib/apiClient";
 import { Button } from "../../components/Button";
@@ -15,13 +10,16 @@ import { Select } from "../../components/Select";
 import { TextField } from "../../components/TextFields";
 import { Textarea } from "../../components/Textarea";
 
+/** Which fields the user actually touched, so an edit can send a real PATCH. */
+export type DirtyTaskFields = Partial<Record<keyof TaskFormValues, boolean>>;
+
 interface TaskFormProps {
   projectId: string;
   defaultValues: TaskFormValues;
   submitLabel: string;
   pendingLabel: string;
   /** Throw an ApiError to surface the server's message above the form. */
-  onSubmit: (values: TaskFormValues) => Promise<void>;
+  onSubmit: (values: TaskFormValues, dirtyFields: DirtyTaskFields) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -41,14 +39,15 @@ export function TaskForm({
 
   const {
     register,
+    control,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema), defaultValues });
 
   const submit = async (values: TaskFormValues) => {
     setFormError(null);
     try {
-      await onSubmit(values);
+      await onSubmit(values, dirtyFields);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Something went wrong");
     }
@@ -106,16 +105,27 @@ export function TaskForm({
           error={errors.dueDate?.message}
         />
 
-        <Select label="Assignee" id={`${fieldId}-assigneeId`} {...register("assigneeId")}>
-          <option value="">Unassigned</option>
-          {/* The API rejects an assignee who isn't a project member, so the list
-              is exactly the membership. */}
-          {members?.map((member) => (
-            <option key={member.user.id} value={member.user.id}>
-              {member.user.username}
-            </option>
-          ))}
-        </Select>
+        {/* Controlled, unlike the others: the option list arrives with the member
+            query, and an uncontrolled select silently drops a value it has no
+            option for — so an assigned task would read "Unassigned" on a cold
+            cache while the form still held the real id. React re-applies the
+            value to a controlled select once the options land. */}
+        <Controller
+          control={control}
+          name="assigneeId"
+          render={({ field }) => (
+            <Select label="Assignee" id={`${fieldId}-assigneeId`} {...field}>
+              <option value="">Unassigned</option>
+              {/* The API rejects an assignee who isn't a project member, so the
+                  list is exactly the membership. */}
+              {members?.map((member) => (
+                <option key={member.user.id} value={member.user.id}>
+                  {member.user.username}
+                </option>
+              ))}
+            </Select>
+          )}
+        />
       </div>
 
       <div className="mt-2 flex justify-end gap-3">

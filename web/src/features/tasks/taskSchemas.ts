@@ -49,3 +49,25 @@ export function toFormValues(task: Task): TaskFormValues {
     assigneeId: task.assigneeId ?? "",
   };
 }
+
+/**
+ * Only the fields the user actually edited. Sending the whole object turns a
+ * PATCH into a PUT: opening the drawer snapshots the task at mount, so a
+ * full-object save would silently revert anyone else's edit made in between.
+ */
+export function toTaskPatch(
+  values: TaskFormValues,
+  dirtyFields: Partial<Record<keyof TaskFormValues, boolean>>,
+): Partial<TaskPayload> {
+  const full = toTaskPayload(values);
+  const patch: Partial<TaskPayload> = {};
+
+  if (dirtyFields.title) patch.title = full.title;
+  if (dirtyFields.description) patch.description = full.description;
+  if (dirtyFields.status) patch.status = full.status;
+  if (dirtyFields.priority) patch.priority = full.priority;
+  if (dirtyFields.dueDate) patch.dueDate = full.dueDate;
+  if (dirtyFields.assigneeId) patch.assigneeId = full.assigneeId;
+
+  return patch;
+}

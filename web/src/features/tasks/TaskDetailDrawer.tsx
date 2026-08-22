@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useDeleteTask, useUpdateTask } from "./api";
-import { TaskForm } from "./TaskForm";
-import { toFormValues, toTaskPayload, type TaskFormValues } from "./taskSchemas";
+import { TaskForm, type DirtyTaskFields } from "./TaskForm";
+import { toFormValues, toTaskPatch, type TaskFormValues } from "./taskSchemas";
 import { useMyRole } from "../members/api";
 import { canDeleteTask } from "../members/roles";
 import { useAuth } from "../auth/authContext";
@@ -54,15 +54,20 @@ function TaskDetail({ projectId, task, onClose, updateTask, deleteTask }: TaskDe
   const { showToast } = useToast();
   const { role: myRole } = useMyRole(projectId);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  // Inline rather than a toast: this fires while the drawer is open, and a modal
-  // dialog sits in the top layer where a normal-flow toast host can be covered.
+  // Inline rather than a toast: a delete failure is about this specific task and
+  // belongs next to the button that caused it, where the confirmation still is.
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const mayDelete = canDeleteTask(myRole, task.createdById, user?.id);
 
-  const handleSubmit = async (values: TaskFormValues) => {
-    await updateTask.mutateAsync({ taskId: task.id, data: toTaskPayload(values) });
-    showToast("Task updated");
+  const handleSubmit = async (values: TaskFormValues, dirtyFields: DirtyTaskFields) => {
+    const data = toTaskPatch(values, dirtyFields);
+
+    // Nothing changed — don't spend a request bumping updatedAt.
+    if (Object.keys(data).length > 0) {
+      await updateTask.mutateAsync({ taskId: task.id, data });
+      showToast("Task updated");
+    }
     onClose();
   };
 
