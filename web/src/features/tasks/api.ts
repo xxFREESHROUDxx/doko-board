@@ -36,7 +36,7 @@ export function useCreateTask(projectId: string) {
   return useMutation({
     mutationFn: (payload: TaskPayload) =>
       apiRequest<Task>(`/projects/${projectId}/tasks`, { method: "POST", body: payload }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId), exact: true }),
   });
 }
 
@@ -49,7 +49,7 @@ export function useUpdateTask(projectId: string) {
         method: "PATCH",
         body: data,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId), exact: true }),
   });
 }
 
@@ -59,6 +59,6 @@ export function useDeleteTask(projectId: string) {
   return useMutation({
     mutationFn: (taskId: string) =>
       apiRequest<null>(`/projects/${projectId}/tasks/${taskId}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId), exact: true }),
   });
 }

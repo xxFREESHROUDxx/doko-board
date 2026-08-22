@@ -57,7 +57,8 @@ export function comparatorFor(sort: SortKey): (a: Task, b: Task) => number {
       return (a, b) =>
         compareDueDate(a.dueDate, b.dueDate) ||
         comparePriority(a.priority, b.priority) ||
-        b.createdAt.localeCompare(a.createdAt);
+        b.createdAt.localeCompare(a.createdAt) ||
+        a.id.localeCompare(b.id);
     case "NEWEST":
       return (a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id);
     case "TITLE":

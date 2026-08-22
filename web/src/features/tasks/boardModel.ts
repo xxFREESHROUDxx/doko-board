@@ -11,8 +11,9 @@ export function compareTasks(a: Task, b: Task): number {
   const byDueDate = compareDueDate(a.dueDate, b.dueDate);
   if (byDueDate !== 0) return byDueDate;
 
-  // Newest first, and a deterministic tiebreak so columns never reshuffle.
-  return b.createdAt.localeCompare(a.createdAt);
+  // Newest first, then id: without the id the order is only as stable as the
+  // sort implementation, and two tasks created in the same millisecond swap.
+  return b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id);
 }
 
 /**

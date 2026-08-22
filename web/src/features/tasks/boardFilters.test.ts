@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ANY,
   DEFAULT_FILTERS,
+  SORT_KEYS,
   UNASSIGNED,
   comparatorFor,
   filterTasks,
@@ -149,11 +150,24 @@ describe("comparatorFor", () => {
     expect(titlesSortedBy("PRIORITY", tasks)).toEqual(["urgent", "low"]);
   });
 
-  it("is a total order, so equal-looking tasks never reshuffle", () => {
-    // Same title and same createdAt: only the id tiebreak separates them.
-    const a = task({ title: "same", createdAt: "2026-01-01T00:00:00.000Z" });
-    const b = task({ title: "same", createdAt: "2026-01-01T00:00:00.000Z" });
-    expect(titlesSortedBy("TITLE", [a, b])).toEqual(titlesSortedBy("TITLE", [b, a]));
-    expect(titlesSortedBy("NEWEST", [a, b])).toEqual(titlesSortedBy("NEWEST", [b, a]));
+  it("is a total order for every sort key, so ties never reshuffle", () => {
+    // Identical on every field a comparator looks at except the id, so only the
+    // id tiebreak can separate them. Without it the order is merely as stable as
+    // whatever Array#sort happens to do.
+    const shared = {
+      title: "same",
+      priority: "MEDIUM" as const,
+      dueDate: "2026-03-01T00:00:00.000Z",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const a = { ...task(shared), id: "aaa" };
+    const b = { ...task(shared), id: "bbb" };
+
+    for (const key of SORT_KEYS) {
+      const forward = [a, b].sort(comparatorFor(key)).map((t) => t.id);
+      const reversed = [b, a].sort(comparatorFor(key)).map((t) => t.id);
+      expect(forward, `sort key ${key}`).toEqual(["aaa", "bbb"]);
+      expect(reversed, `sort key ${key}`).toEqual(["aaa", "bbb"]);
+    }
   });
 });
