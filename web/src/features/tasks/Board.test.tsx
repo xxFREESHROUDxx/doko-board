@@ -263,3 +263,68 @@ describe("Board filtering and sorting", () => {
     expect(screen.queryByText("No matching tasks")).not.toBeInTheDocument();
   });
 });
+
+describe("Board loading state", () => {
+  it("shows a skeleton board rather than a blank page", () => {
+    // Never resolves: this is what the first paint looks like on a slow network.
+    mockedApiRequest.mockImplementation(() => new Promise(() => {}));
+    renderBoard();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading tasks…");
+    // No misleading empty state while the real answer is still in flight.
+    expect(screen.queryByText("No tasks yet")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps the toolbar usable while the board loads", () => {
+    mockedApiRequest.mockImplementation(() => new Promise(() => {}));
+    renderBoard();
+
+    expect(screen.getByLabelText("Search tasks by title")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /New task/ })).toBeInTheDocument();
+  });
+
+  it("replaces the skeleton with the board once the tasks arrive", async () => {
+    stubApi([task({ title: "Loaded task" })]);
+    renderBoard();
+
+    expect(await screen.findByText("Loaded task")).toBeInTheDocument();
+    expect(screen.queryByText("Loading tasks…")).not.toBeInTheDocument();
+  });
+});
+
+describe("Board assignee resolution", () => {
+  it("stays quiet about the assignee until the member list settles", async () => {
+    // /tasks routinely wins the race against /members. While the map is
+    // undefined, "not a member" and "not loaded" are indistinguishable — and
+    // guessing flashes a claim that is simply false.
+    let releaseMembers = () => {};
+    const membersArrived = new Promise<void>((resolve) => {
+      releaseMembers = resolve;
+    });
+
+    mockedApiRequest.mockImplementation(async (path: string) => {
+      if (path === `/projects/${PROJECT_ID}/members`) {
+        await membersArrived;
+        return membership as never;
+      }
+      if (path === `/projects/${PROJECT_ID}/tasks`) {
+        return [task({ assigneeId: testUser.id })] as never;
+      }
+      return null as never;
+    });
+
+    renderBoard();
+    await screen.findByText("Task 1");
+
+    expect(
+      screen.queryByRole("img", { name: /no longer a member/i }),
+    ).not.toBeInTheDocument();
+
+    releaseMembers();
+
+    expect(
+      await screen.findByRole("img", { name: `Assigned to ${testUser.username}` }),
+    ).toBeInTheDocument();
+  });
+});

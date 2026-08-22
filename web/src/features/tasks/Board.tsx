@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useTasks, useUpdateTask } from "./api";
+import { useTasks } from "./api";
 import { BoardColumn } from "./BoardColumn";
 import { BoardToolbar } from "./BoardToolbar";
 import { CreateTaskModal } from "./CreateTaskModal";
@@ -12,15 +12,14 @@ import {
   filterTasks,
   type BoardFilters,
 } from "./boardFilters";
-import { STATUS_LABELS, TASK_STATUSES } from "./taskMeta";
+import { TASK_STATUSES } from "./taskMeta";
 import { useMemberMap, useProjectMembers } from "../members/api";
 import { ApiError } from "../../lib/apiClient";
-import { useToast } from "../../components/toastContext";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
 import { ClipboardIcon, PlusIcon, SearchIcon } from "../../components/icons";
-import type { Task, TaskStatus } from "../../types/api";
+import type { TaskStatus } from "../../types/api";
 
 const SKELETON_CARDS = ["a", "b", "c"];
 
@@ -30,8 +29,6 @@ export function Board({ projectId }: { projectId: string }) {
   // fills the assignee filter. TanStack dedupes them into one request.
   const { data: memberMap } = useMemberMap(projectId);
   const { data: members } = useProjectMembers(projectId);
-  const updateTask = useUpdateTask(projectId);
-  const { showToast } = useToast();
 
   const [filters, setFilters] = useState<BoardFilters>(DEFAULT_FILTERS);
   // The status the create modal opens with; null means the modal is closed.
@@ -54,20 +51,6 @@ export function Board({ projectId }: { projectId: string }) {
 
   const clearFilters = () =>
     setFilters((current) => ({ ...current, search: "", priority: ANY, assignee: ANY }));
-
-  const handleStatusChange = (task: Task, status: TaskStatus) => {
-    updateTask.mutate(
-      { taskId: task.id, data: { status } },
-      {
-        onSuccess: () =>
-          showToast(`"${task.title}" moved to ${STATUS_LABELS[status].toLowerCase()}`),
-        onError: (err) =>
-          showToast(err instanceof ApiError ? err.message : "Couldn't move this task", "error"),
-      },
-    );
-  };
-
-  const movingTaskId = updateTask.isPending ? (updateTask.variables?.taskId ?? null) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -149,9 +132,7 @@ export function Board({ projectId }: { projectId: string }) {
               tasks={columns[status]}
               memberMap={memberMap}
               onSelectTask={(task) => setSelectedTaskId(task.id)}
-              onStatusChange={handleStatusChange}
               onAddTask={setCreateStatus}
-              movingTaskId={movingTaskId}
             />
           ))}
         </div>

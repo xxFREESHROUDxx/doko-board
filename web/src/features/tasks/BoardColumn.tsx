@@ -8,10 +8,7 @@ interface BoardColumnProps {
   tasks: Task[];
   memberMap: Map<string, User> | undefined;
   onSelectTask: (task: Task) => void;
-  onStatusChange: (task: Task, status: TaskStatus) => void;
   onAddTask: (status: TaskStatus) => void;
-  /** Id of the task whose status PATCH is in flight, if any. */
-  movingTaskId: string | null;
 }
 
 export function BoardColumn({
@@ -19,9 +16,7 @@ export function BoardColumn({
   tasks,
   memberMap,
   onSelectTask,
-  onStatusChange,
   onAddTask,
-  movingTaskId,
 }: BoardColumnProps) {
   const label = STATUS_LABELS[status];
 
@@ -63,8 +58,6 @@ export function BoardColumn({
               task={task}
               memberMap={memberMap}
               onSelect={onSelectTask}
-              onStatusChange={onStatusChange}
-              isMoving={movingTaskId === task.id}
             />
           ))}
         </ul>

@@ -1,6 +1,9 @@
-import type { ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
+import { useUpdateTask } from "./api";
 import { PRIORITY_LABELS, PRIORITY_TONES, STATUS_LABELS, TASK_STATUSES } from "./taskMeta";
 import { formatDueDate, isOverdue } from "../../lib/dates";
+import { ApiError } from "../../lib/apiClient";
+import { useToast } from "../../components/toastContext";
 import { AvatarStack } from "../../components/AvatarStack";
 import { Chip } from "../../components/Chip";
 import { Select } from "../../components/Select";
@@ -8,29 +11,45 @@ import type { Task, TaskStatus, User } from "../../types/api";
 
 interface TaskCardProps {
   task: Task;
-  /** userId -> user for this project; assignees are stored as a bare id. */
+  /** userId -> user for this project; assignees are stored as a bare id.
+   *  `undefined` means the member list hasn't resolved, not "no members". */
   memberMap: Map<string, User> | undefined;
   onSelect: (task: Task) => void;
-  onStatusChange: (task: Task, status: TaskStatus) => void;
-  /** True while this card's own status PATCH is in flight. */
-  isMoving: boolean;
 }
 
-export function TaskCard({
-  task,
-  memberMap,
-  onSelect,
-  onStatusChange,
-  isMoving,
-}: TaskCardProps) {
+export function TaskCard({ task, memberMap, onSelect }: TaskCardProps) {
+  // Each card owns its mutation. A board-level observer would be re-pointed by
+  // the next card to move, and query-core detaches it from the in-flight one —
+  // so an earlier card's failure would never reach any callback.
+  const updateTask = useUpdateTask(task.projectId);
+  const { showToast } = useToast();
+  // Shown while the PATCH is in flight, so the select doesn't snap back to the
+  // old status for a whole round trip.
+  const [pendingStatus, setPendingStatus] = useState<TaskStatus | null>(null);
+
   const overdue = task.dueDate !== null && task.status !== "DONE" && isOverdue(task.dueDate);
 
-  const handleStatusChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    onStatusChange(task, event.target.value as TaskStatus);
+  const handleStatusChange = async (event: ChangeEvent<HTMLSelectElement>) => {
+    const status = event.target.value as TaskStatus;
+    // Guarded here rather than by disabling the control: disabling the element
+    // that currently has focus blurs it, dropping a keyboard user back to <body>.
+    if (status === task.status || updateTask.isPending) return;
+
+    setPendingStatus(status);
+    try {
+      // mutateAsync, not mutate's callbacks: a successful move unmounts this card
+      // from its old column, and callbacks are skipped once the observer is gone.
+      await updateTask.mutateAsync({ taskId: task.id, data: { status } });
+      showToast(`"${task.title}" moved to ${STATUS_LABELS[status].toLowerCase()}`);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Couldn't move this task", "error");
+    } finally {
+      setPendingStatus(null);
+    }
   };
 
   return (
-    <li className="relative rounded-xl border border-stone-200 bg-white p-3.5 shadow-sm motion-safe:transition-[box-shadow,border-color] motion-safe:duration-150 hover:border-stone-300 hover:shadow-md">
+    <li className="relative cursor-pointer rounded-xl border border-stone-200 bg-white p-3.5 shadow-sm motion-safe:transition-[box-shadow,border-color] motion-safe:duration-150 hover:border-stone-300 hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
         <Chip tone={PRIORITY_TONES[task.priority]}>{PRIORITY_LABELS[task.priority]}</Chip>
         {task.dueDate && (
@@ -50,7 +69,7 @@ export function TaskCard({
         <button
           type="button"
           onClick={() => onSelect(task)}
-          className="line-clamp-2 rounded text-left after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-marigold-500/50"
+          className="line-clamp-2 cursor-pointer rounded text-left after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-marigold-500/50"
         >
           {task.title}
         </button>
@@ -61,9 +80,9 @@ export function TaskCard({
           hideLabel
           label={`Status for ${task.title}`}
           id={`task-status-${task.id}`}
-          value={task.status}
+          value={pendingStatus ?? task.status}
           onChange={handleStatusChange}
-          disabled={isMoving}
+          aria-busy={updateTask.isPending || undefined}
           className="text-xs"
         >
           {TASK_STATUSES.map((status) => (
@@ -81,7 +100,12 @@ export function TaskCard({
 function Assignee({ task, memberMap }: Pick<TaskCardProps, "task" | "memberMap">) {
   if (task.assigneeId === null) return null;
 
-  const assignee = memberMap?.get(task.assigneeId);
+  // No member map yet — loading, or the request failed. "Not in the map" and
+  // "not loaded" are indistinguishable here, and /tasks routinely wins the race
+  // against /members, so guessing would flash a claim that isn't true.
+  if (!memberMap) return null;
+
+  const assignee = memberMap.get(task.assigneeId);
 
   if (!assignee) {
     // Assigned to someone who has since left the project — the id outlives the
@@ -98,7 +122,5 @@ function Assignee({ task, memberMap }: Pick<TaskCardProps, "task" | "memberMap">
     );
   }
 
-  return (
-    <AvatarStack names={[assignee.username]} label={`Assigned to ${assignee.username}`} />
-  );
+  return <AvatarStack names={[assignee.username]} label={`Assigned to ${assignee.username}`} />;
 }
