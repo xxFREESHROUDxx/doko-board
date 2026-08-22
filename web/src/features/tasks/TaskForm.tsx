@@ -1,0 +1,131 @@
+import { useId, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { taskSchema, type TaskFormValues } from "./taskSchemas";
+import {
+  PRIORITY_LABELS,
+  STATUS_LABELS,
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+} from "./taskMeta";
+import { useProjectMembers } from "../members/api";
+import { ApiError } from "../../lib/apiClient";
+import { Button } from "../../components/Button";
+import { Select } from "../../components/Select";
+import { TextField } from "../../components/TextFields";
+import { Textarea } from "../../components/Textarea";
+
+interface TaskFormProps {
+  projectId: string;
+  defaultValues: TaskFormValues;
+  submitLabel: string;
+  pendingLabel: string;
+  /** Throw an ApiError to surface the server's message above the form. */
+  onSubmit: (values: TaskFormValues) => Promise<void>;
+  onCancel: () => void;
+}
+
+export function TaskForm({
+  projectId,
+  defaultValues,
+  submitLabel,
+  pendingLabel,
+  onSubmit,
+  onCancel,
+}: TaskFormProps) {
+  const { data: members } = useProjectMembers(projectId);
+  const [formError, setFormError] = useState<string | null>(null);
+  // Two of these can be mounted at once (create modal, edit drawer) — unique ids
+  // keep every <label for> pointing at the right control.
+  const fieldId = useId();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema), defaultValues });
+
+  const submit = async (values: TaskFormValues) => {
+    setFormError(null);
+    try {
+      await onSubmit(values);
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Something went wrong");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" noValidate>
+      {formError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700"
+        >
+          {formError}
+        </div>
+      )}
+
+      <TextField
+        label="Title"
+        id={`${fieldId}-title`}
+        data-autofocus
+        {...register("title")}
+        error={errors.title?.message}
+      />
+
+      <Textarea
+        label="Description (optional)"
+        id={`${fieldId}-description`}
+        rows={3}
+        {...register("description")}
+        error={errors.description?.message}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Select label="Status" id={`${fieldId}-status`} {...register("status")}>
+          {TASK_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {STATUS_LABELS[status]}
+            </option>
+          ))}
+        </Select>
+
+        <Select label="Priority" id={`${fieldId}-priority`} {...register("priority")}>
+          {TASK_PRIORITIES.map((priority) => (
+            <option key={priority} value={priority}>
+              {PRIORITY_LABELS[priority]}
+            </option>
+          ))}
+        </Select>
+
+        <TextField
+          label="Due date (optional)"
+          id={`${fieldId}-dueDate`}
+          type="date"
+          {...register("dueDate")}
+          error={errors.dueDate?.message}
+        />
+
+        <Select label="Assignee" id={`${fieldId}-assigneeId`} {...register("assigneeId")}>
+          <option value="">Unassigned</option>
+          {/* The API rejects an assignee who isn't a project member, so the list
+              is exactly the membership. */}
+          {members?.map((member) => (
+            <option key={member.user.id} value={member.user.id}>
+              {member.user.username}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      <div className="mt-2 flex justify-end gap-3">
+        <Button variant="secondary" onClick={onCancel} disabled={isSubmitting}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={isSubmitting}>
+          {isSubmitting ? pendingLabel : submitLabel}
+        </Button>
+      </div>
+    </form>
+  );
+}

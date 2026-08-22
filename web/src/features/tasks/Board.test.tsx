@@ -1,0 +1,168 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Board } from "./Board";
+import { renderWithProviders, testUser } from "../../test/utils";
+import { apiRequest } from "../../lib/apiClient";
+import type { ProjectMember, Task } from "../../types/api";
+
+vi.mock("../../lib/apiClient", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/apiClient")>();
+  return { ...actual, apiRequest: vi.fn() };
+});
+
+const mockedApiRequest = vi.mocked(apiRequest);
+const PROJECT_ID = "22222222-2222-4222-8222-222222222222";
+
+let seq = 0;
+function task(overrides: Partial<Task> = {}): Task {
+  seq += 1;
+  return {
+    id: `task-${seq}`,
+    title: `Task ${seq}`,
+    description: null,
+    status: "TODO",
+    priority: "MEDIUM",
+    dueDate: null,
+    projectId: PROJECT_ID,
+    assigneeId: null,
+    createdById: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+const membership: ProjectMember[] = [
+  { id: "pm-1", role: "OWNER", joinedAt: "2026-01-01T00:00:00.000Z", user: testUser },
+];
+
+function stubApi(tasks: Task[], options: { tasksFail?: boolean } = {}) {
+  mockedApiRequest.mockImplementation(async (path: string) => {
+    if (path === `/projects/${PROJECT_ID}/members`) return membership as never;
+    if (path === `/projects/${PROJECT_ID}/tasks`) {
+      if (options.tasksFail) {
+        const { ApiError } = await import("../../lib/apiClient");
+        throw new ApiError(500, "Board is down");
+      }
+      return tasks as never;
+    }
+    return null as never;
+  });
+}
+
+function renderBoard() {
+  return renderWithProviders(<Board projectId={PROJECT_ID} />);
+}
+
+function column(label: string) {
+  return screen.getByRole("region", { name: new RegExp(`^${label}`) });
+}
+
+beforeEach(() => {
+  mockedApiRequest.mockReset();
+  seq = 0; // titles are generated, so each test must start from "Task 1"
+});
+
+describe("Board", () => {
+  it("renders the four status columns with counts", async () => {
+    stubApi([
+      task({ status: "TODO" }),
+      task({ status: "TODO" }),
+      task({ status: "IN_PROGRESS" }),
+      task({ status: "DONE" }),
+    ]);
+    renderBoard();
+
+    expect(await screen.findByRole("region", { name: "Not started (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "On progress (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "On review (0)" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Completed (1)" })).toBeInTheDocument();
+  });
+
+  it("files each task into the column for its status", async () => {
+    stubApi([
+      task({ status: "IN_REVIEW", title: "Needs a look" }),
+      task({ status: "DONE", title: "Shipped" }),
+    ]);
+    renderBoard();
+
+    await screen.findByText("Needs a look");
+    expect(within(column("On review")).getByText("Needs a look")).toBeInTheDocument();
+    expect(within(column("Completed")).getByText("Shipped")).toBeInTheDocument();
+  });
+
+  it("orders a column by priority, then due date", async () => {
+    stubApi([
+      task({ title: "low", priority: "LOW" }),
+      task({ title: "urgent", priority: "URGENT" }),
+      task({ title: "medium-soon", priority: "MEDIUM", dueDate: "2026-02-01T00:00:00.000Z" }),
+      task({ title: "medium-later", priority: "MEDIUM", dueDate: "2026-09-01T00:00:00.000Z" }),
+    ]);
+    renderBoard();
+
+    await screen.findByText("urgent");
+    const headings = within(column("Not started"))
+      .getAllByRole("heading", { level: 4 })
+      .map((node) => node.textContent);
+    expect(headings).toEqual(["urgent", "medium-soon", "medium-later", "low"]);
+  });
+
+  it("shows an empty column placeholder", async () => {
+    stubApi([task({ status: "TODO" })]);
+    renderBoard();
+
+    await screen.findByText("Task 1");
+    expect(within(column("Completed")).getByText(/Nothing completed/i)).toBeInTheDocument();
+  });
+
+  it("invites the first task when the board is empty", async () => {
+    stubApi([]);
+    renderBoard();
+
+    expect(await screen.findByText("No tasks yet")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Not started/ })).not.toBeInTheDocument();
+  });
+
+  it("resolves the assignee through the member map", async () => {
+    stubApi([task({ assigneeId: testUser.id })]);
+    renderBoard();
+
+    expect(
+      await screen.findByRole("img", { name: `Assigned to ${testUser.username}` }),
+    ).toBeInTheDocument();
+  });
+
+  it("says so when the assignee has left the project", async () => {
+    stubApi([task({ assigneeId: "someone-who-left" })]);
+    renderBoard();
+
+    expect(
+      await screen.findByRole("img", { name: /no longer a member/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("spells out an overdue date rather than relying on colour", async () => {
+    stubApi([task({ dueDate: "2020-01-02T00:00:00.000Z" })]);
+    renderBoard();
+
+    expect(await screen.findByText(/Overdue/)).toBeInTheDocument();
+  });
+
+  it("never marks a completed task overdue", async () => {
+    stubApi([task({ status: "DONE", dueDate: "2020-01-02T00:00:00.000Z" })]);
+    renderBoard();
+
+    await screen.findByText("Task 1");
+    expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
+  });
+
+  it("offers a retry when the board fails to load", async () => {
+    stubApi([], { tasksFail: true });
+    renderBoard();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Board is down");
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(mockedApiRequest).toHaveBeenCalledWith(`/projects/${PROJECT_ID}/tasks`);
+  });
+});

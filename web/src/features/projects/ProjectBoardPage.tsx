@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useProject } from "./api";
+import { useProjectMembers } from "../members/api";
+import { MembersDialog } from "../members/MembersDialog";
+import { Board } from "../tasks/Board";
+import { Button } from "../../components/Button";
 import { projectColor } from "../../lib/projectColor";
 import { ApiError } from "../../lib/apiClient";
 import { buttonClasses } from "../../components/buttonStyles";
-import { EmptyState } from "../../components/EmptyState";
 import { Skeleton } from "../../components/Skeleton";
-import { KanbanIcon } from "../../components/icons";
+import { UsersIcon } from "../../components/icons";
 
 export function ProjectBoardPage() {
   const { projectId } = useParams();
@@ -19,6 +23,7 @@ export function ProjectBoardPage() {
 
 function ProjectBoard({ projectId }: { projectId: string }) {
   const { data: project, isPending, isError, error } = useProject(projectId);
+  const [membersOpen, setMembersOpen] = useState(false);
 
   if (isPending) {
     return (
@@ -59,25 +64,48 @@ function ProjectBoard({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start gap-3">
-        <span
-          aria-hidden="true"
-          className={`mt-2 h-5 w-5 shrink-0 rounded-md ${projectColor(project.id)}`}
-        />
-        <div className="min-w-0">
-          <h2 className="truncate font-display text-2xl font-semibold text-ink">{project.name}</h2>
-          {project.description && (
-            <p className="mt-1 max-w-2xl text-sm text-ink/60">{project.description}</p>
-          )}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            aria-hidden="true"
+            className={`mt-2 h-5 w-5 shrink-0 rounded-md ${projectColor(project.id)}`}
+          />
+          <div className="min-w-0">
+            <h2 className="truncate font-display text-2xl font-semibold text-ink">
+              {project.name}
+            </h2>
+            {project.description && (
+              <p className="mt-1 max-w-2xl text-sm text-ink/60">{project.description}</p>
+            )}
+          </div>
         </div>
+        <MembersButton projectId={projectId} onClick={() => setMembersOpen(true)} />
       </div>
-      <EmptyState
-        as="h3"
-        className="min-h-[45vh]"
-        icon={KanbanIcon}
-        title="Board coming soon"
-        description="Tasks and columns for this project will live here."
-      />
+
+      <Board projectId={projectId} />
+
+      {/* Mounted only while open: Modal always renders its children, so a
+          persistent dialog would keep a half-typed email and a row stuck
+          mid-confirmation across a close and reopen. */}
+      {membersOpen && (
+        <MembersDialog projectId={projectId} open onClose={() => setMembersOpen(false)} />
+      )}
     </div>
+  );
+}
+
+function MembersButton({ projectId, onClick }: { projectId: string; onClick: () => void }) {
+  const { data: members } = useProjectMembers(projectId);
+
+  return (
+    <Button variant="secondary" onClick={onClick}>
+      <UsersIcon className="h-4 w-4" />
+      Members
+      {members && (
+        <span className="rounded-full bg-stone-100 px-1.5 text-xs font-medium text-ink/70">
+          {members.length}
+        </span>
+      )}
+    </Button>
   );
 }
