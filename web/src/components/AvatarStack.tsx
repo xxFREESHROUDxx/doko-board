@@ -2,6 +2,8 @@ import { Avatar } from "./Avatar";
 
 interface AvatarStackProps {
   names: string[];
+  /** Accessible name for the whole cluster, e.g. "Assigned to Ada, Grace". */
+  label: string;
   /** Avatars shown before collapsing the rest into a "+N" bubble. */
   max?: number;
   size?: "sm" | "md";
@@ -13,7 +15,7 @@ const overflowSize = {
   md: "h-9 w-9 text-xs",
 } as const;
 
-export function AvatarStack({ names, max = 3, size = "sm", className }: AvatarStackProps) {
+export function AvatarStack({ names, label, max = 3, size = "sm", className }: AvatarStackProps) {
   if (names.length === 0) return null;
 
   const shown = names.slice(0, max);
@@ -25,7 +27,7 @@ export function AvatarStack({ names, max = 3, size = "sm", className }: AvatarSt
     <span
       className={`flex items-center${className ? ` ${className}` : ""}`}
       role="img"
-      aria-label={`Assigned to ${names.join(", ")}`}
+      aria-label={label}
     >
       {shown.map((name, index) => (
         <Avatar

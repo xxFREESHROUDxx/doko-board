@@ -1,12 +1,5 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  type MouseEvent,
-  type PointerEvent,
-  type ReactNode,
-  type SyntheticEvent,
-} from "react";
+import { useId, type ReactNode } from "react";
+import { useNativeDialog } from "./useNativeDialog";
 import { XIcon } from "./icons";
 
 interface ModalProps {
@@ -16,73 +9,32 @@ interface ModalProps {
   title: string;
   /** While true the dialog refuses to close (Esc, backdrop, X) — e.g. a submit in flight. */
   busy?: boolean;
+  /** "lg" suits list-shaped content (members, task detail); "md" suits short forms. */
+  size?: "md" | "lg";
   children: ReactNode;
 }
 
-export function Modal({ open, onClose, title, busy = false, children }: ModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+const SIZES = {
+  md: "max-w-md",
+  lg: "max-w-xl",
+} as const;
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  busy = false,
+  size = "md",
+  children,
+}: ModalProps) {
+  const { close, dialogProps } = useNativeDialog({ open, onClose, busy });
   const titleId = useId();
-
-  // Keep the latest onClose in a ref so the close listener isn't re-attached
-  // every render (callers pass inline handlers).
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  // Sync the `open` prop with the native dialog's modal state.
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) {
-      dialog.showModal();
-      // showModal() focuses the first focusable element (the X button); redirect
-      // to the caller's chosen field. React's autoFocus can't work here — the
-      // dialog is mounted closed, so mount-time .focus() is a no-op.
-      dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
-    } else if (!open && dialog.open) {
-      dialog.close();
-    }
-  }, [open]);
-
-  // The dialog can close itself (Esc), so report it via the native close event.
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const handleClose = () => onCloseRef.current();
-    dialog.addEventListener("close", handleClose);
-    return () => dialog.removeEventListener("close", handleClose);
-  }, []);
-
-  // Esc fires the native cancel event before close; block it while busy.
-  const handleCancel = (event: SyntheticEvent<HTMLDialogElement>) => {
-    if (busy) event.preventDefault();
-  };
-
-  // Only treat a click as "backdrop" when the press also started there —
-  // otherwise a text-selection drag out of an input would close (and reset) the form.
-  const pressedOnBackdrop = useRef(false);
-
-  const handlePointerDown = (event: PointerEvent<HTMLDialogElement>) => {
-    pressedOnBackdrop.current = event.target === dialogRef.current;
-  };
-
-  // Clicks on the ::backdrop land on the dialog element itself.
-  const handleClick = (event: MouseEvent<HTMLDialogElement>) => {
-    if (busy) return;
-    if (pressedOnBackdrop.current && event.target === dialogRef.current) {
-      dialogRef.current?.close();
-    }
-  };
 
   return (
     <dialog
-      ref={dialogRef}
+      {...dialogProps}
       aria-labelledby={titleId}
-      onCancel={handleCancel}
-      onPointerDown={handlePointerDown}
-      onClick={handleClick}
-      className="m-auto w-[calc(100vw-2rem)] max-w-md rounded-xl border border-stone-200 bg-white p-0 shadow-xl backdrop:bg-ink/40 motion-safe:transition-[opacity,scale] motion-safe:duration-200 motion-safe:ease-out motion-safe:starting:scale-95 motion-safe:starting:opacity-0"
+      className={`m-auto w-[calc(100vw-2rem)] ${SIZES[size]} rounded-xl border border-stone-200 bg-white p-0 shadow-xl backdrop:bg-ink/40 motion-safe:transition-[opacity,scale] motion-safe:duration-200 motion-safe:ease-out motion-safe:starting:scale-95 motion-safe:starting:opacity-0`}
     >
       <div className="flex items-start justify-between gap-4 px-6 pt-5">
         <h2 id={titleId} className="font-display text-lg font-semibold text-ink">
@@ -90,7 +42,7 @@ export function Modal({ open, onClose, title, busy = false, children }: ModalPro
         </h2>
         <button
           type="button"
-          onClick={() => dialogRef.current?.close()}
+          onClick={close}
           disabled={busy}
           aria-label="Close"
           className="-mr-2 -mt-1 inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink/70 hover:bg-stone-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marigold-500/50 disabled:pointer-events-none disabled:opacity-60 motion-safe:transition-colors motion-safe:duration-150"

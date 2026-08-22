@@ -9,6 +9,11 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   hideLabel?: boolean;
 }
 
+// Note for callers: `className` is appended, but that does not win the cascade —
+// emitted CSS order does. Padding utilities here (py-2.5/pl-3.5/pr-10) are sorted
+// after the smaller ones Tailwind emits, so a compact override is dead code. The
+// full-height control is deliberate anyway: it keeps the 40px hit-target floor.
+
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, id, hideLabel = false, className, children, ...props }, ref) => (
     <div className="flex flex-col gap-1.5">
