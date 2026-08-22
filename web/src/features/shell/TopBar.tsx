@@ -4,6 +4,8 @@ import { Avatar } from "../../components/Avatar";
 import { MenuIcon } from "../../components/icons";
 import { useAuth } from "../auth/authContext";
 import { ProjectChips } from "../projects/ProjectChips";
+import { useActiveProjectId } from "../projects/useActiveProjectId";
+import { ProjectMemberAvatars } from "../members/ProjectMemberAvatars";
 import { isRouteHandle } from "./routeHandle";
 
 interface TopBarProps {
@@ -14,6 +16,7 @@ interface TopBarProps {
 export function TopBar({ onOpenNav, navOpen }: TopBarProps) {
   const matches = useMatches();
   const { user } = useAuth();
+  const activeProjectId = useActiveProjectId();
 
   // The deepest match with a valid handle wins (later matches override earlier ones).
   const title =
@@ -41,8 +44,13 @@ export function TopBar({ onOpenNav, navOpen }: TopBarProps) {
       </button>
       <h1 className="min-w-0 truncate font-display text-3xl font-semibold text-ink">{title}</h1>
       <ProjectChips />
-      {/* TODO(task-3): member avatar cluster renders here. */}
-      {user && <Avatar name={user.username} title={user.username} className="ml-auto" />}
+      <div className="ml-auto flex shrink-0 items-center gap-3">
+        {activeProjectId && <ProjectMemberAvatars projectId={activeProjectId} />}
+        {activeProjectId && user && (
+          <span aria-hidden="true" className="hidden h-6 w-px bg-stone-200 sm:block" />
+        )}
+        {user && <Avatar name={user.username} title={user.username} />}
+      </div>
     </header>
   );
 }
