@@ -8,10 +8,7 @@ import { ApiError } from "../../lib/apiClient";
 import { Button } from "../../components/Button";
 import { Select } from "../../components/Select";
 import { TextField } from "../../components/TextFields";
-import { Textarea } from "../../components/Textarea";
-
-/** Which fields the user actually touched, so an edit can send a real PATCH. */
-export type DirtyTaskFields = Partial<Record<keyof TaskFormValues, boolean>>;
+import { MarkdownEditor } from "../../components/MarkdownEditor";
 
 interface TaskFormProps {
   projectId: string;
@@ -19,7 +16,7 @@ interface TaskFormProps {
   submitLabel: string;
   pendingLabel: string;
   /** Throw an ApiError to surface the server's message above the form. */
-  onSubmit: (values: TaskFormValues, dirtyFields: DirtyTaskFields) => Promise<void>;
+  onSubmit: (values: TaskFormValues) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -41,13 +38,13 @@ export function TaskForm({
     register,
     control,
     handleSubmit,
-    formState: { errors, isSubmitting, dirtyFields },
+    formState: { errors, isSubmitting },
   } = useForm<TaskFormValues>({ resolver: zodResolver(taskSchema), defaultValues });
 
   const submit = async (values: TaskFormValues) => {
     setFormError(null);
     try {
-      await onSubmit(values, dirtyFields);
+      await onSubmit(values);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Something went wrong");
     }
@@ -72,12 +69,20 @@ export function TaskForm({
         error={errors.title?.message}
       />
 
-      <Textarea
-        label="Description (optional)"
-        id={`${fieldId}-description`}
-        rows={3}
-        {...register("description")}
-        error={errors.description?.message}
+      <Controller
+        control={control}
+        name="description"
+        render={({ field }) => (
+          <MarkdownEditor
+            label="Description (optional)"
+            value={field.value}
+            onChange={field.onChange}
+            onCommit={field.onBlur}
+            placeholder="Add more detail. Markdown works here."
+            minRows={6}
+            error={errors.description?.message}
+          />
+        )}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

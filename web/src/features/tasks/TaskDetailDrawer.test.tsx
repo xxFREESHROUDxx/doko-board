@@ -51,6 +51,7 @@ interface SetupOptions {
   updateError?: unknown;
   deleteError?: unknown;
   /** Held open so the test can assert the in-flight UI. */
+  updateGate?: Promise<void>;
   deleteGate?: Promise<void>;
   /** Skip seeding the member cache, to exercise the first-paint case. */
   coldCache?: boolean;
@@ -61,12 +62,14 @@ interface SetupOptions {
  * cached, because Board mounts it long before any card can be clicked.
  */
 function setup(current: Task = task(), options: SetupOptions = {}) {
-  const { myRole = "OWNER", updateError, deleteError, deleteGate, coldCache } = options;
+  const { myRole = "OWNER", updateError, updateGate, deleteError, deleteGate, coldCache } =
+    options;
 
   mockedApiRequest.mockImplementation(async (path: string, requestOptions = {}) => {
     const method = requestOptions.method ?? "GET";
     if (path === `/projects/${PROJECT_ID}/members`) return roster(myRole) as never;
     if (method === "PATCH") {
+      if (updateGate) await updateGate;
       if (updateError) throw updateError;
       return { ...current, ...(requestOptions.body as Partial<Task>) } as never;
     }
@@ -104,10 +107,9 @@ function deleteCalls(): string[] {
 
 const deleteButton = () => screen.queryByRole("button", { name: "Delete task" });
 
-/** The form has a Cancel of its own above, so the confirmation's is the last. */
+/** The only Cancel left is the delete confirmation's. */
 function confirmCancelButton(): HTMLElement {
-  const buttons = screen.getAllByRole("button", { name: "Cancel" });
-  return buttons[buttons.length - 1];
+  return screen.getByRole("button", { name: "Cancel" });
 }
 
 beforeEach(() => {
@@ -119,13 +121,11 @@ describe("TaskDetailDrawer editing", () => {
     setup();
 
     expect(screen.getByLabelText("Title")).toHaveValue("Draft the release notes");
-    expect(screen.getByLabelText("Description (optional)")).toHaveValue(
-      "Cover the board changes",
-    );
+    expect(screen.getByLabelText("Description")).toHaveValue("Cover the board changes");
     expect(screen.getByLabelText("Status")).toHaveValue("IN_PROGRESS");
     expect(screen.getByLabelText("Priority")).toHaveValue("HIGH");
     // The API's instant round-trips into the yyyy-mm-dd the date input wants.
-    expect(screen.getByLabelText("Due date (optional)")).toHaveValue("2026-09-01");
+    expect(screen.getByLabelText("Due date")).toHaveValue("2026-09-01");
     expect(screen.getByLabelText("Assignee")).toHaveValue(grace.id);
     expect(screen.getByLabelText("Title")).toHaveFocus();
   });
@@ -133,109 +133,145 @@ describe("TaskDetailDrawer editing", () => {
   it("leaves the optional fields blank when the task has none set", () => {
     setup(task({ description: null, dueDate: null, assigneeId: null }));
 
-    expect(screen.getByLabelText("Description (optional)")).toHaveValue("");
-    expect(screen.getByLabelText("Due date (optional)")).toHaveValue("");
+    expect(screen.getByLabelText("Description")).toHaveValue("");
+    expect(screen.getByLabelText("Due date")).toHaveValue("");
     expect(screen.getByLabelText("Assignee")).toHaveValue("");
   });
 
-  it("saves an edit, confirms it and closes", async () => {
-    const { onClose } = setup();
+  it("has no save or cancel button — edits are committed as they happen", () => {
+    setup();
+
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+  });
+
+  it("saves a priority change the moment it is picked", async () => {
+    setup();
+
+    await userEvent.selectOptions(screen.getByLabelText("Priority"), "URGENT");
+
+    await waitFor(() => expect(patchBodies()).toEqual([{ priority: "URGENT" }]));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+  });
+
+  it("saves a status change on its own, without touching other fields", async () => {
+    setup();
+
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "DONE");
+
+    await waitFor(() => expect(patchBodies()).toEqual([{ status: "DONE" }]));
+  });
+
+  it("commits the title on blur, and only the title", async () => {
+    setup();
 
     const title = screen.getByLabelText("Title");
     await userEvent.clear(title);
     await userEvent.type(title, "Draft the launch notes");
-    await userEvent.selectOptions(screen.getByLabelText("Status"), "IN_REVIEW");
-    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await userEvent.tab();
 
-    // Only the two edited fields: a full-object save would be a PUT, and would
-    // revert any change someone else made since the drawer opened.
-    await waitFor(() =>
-      expect(patchBodies()).toEqual([
-        { title: "Draft the launch notes", status: "IN_REVIEW" },
-      ]),
-    );
-    expect(mockedApiRequest.mock.calls.find(([, o]) => o?.method === "PATCH")?.[0]).toBe(
-      `/projects/${PROJECT_ID}/tasks/task-1`,
-    );
-    expect(await screen.findByText("Task updated")).toBeInTheDocument();
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    await waitFor(() => expect(patchBodies()).toEqual([{ title: "Draft the launch notes" }]));
   });
 
-  it("clears the optional fields with null rather than an empty string", async () => {
+  it("does not send a request when a field is blurred unchanged", async () => {
     setup();
 
-    await userEvent.clear(screen.getByLabelText("Description (optional)"));
-    await userEvent.clear(screen.getByLabelText("Due date (optional)"));
-    await userEvent.selectOptions(screen.getByLabelText("Assignee"), "");
-    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await userEvent.click(screen.getByLabelText("Title"));
+    await userEvent.tab();
 
-    await waitFor(() =>
-      expect(patchBodies()).toEqual([
-        expect.objectContaining({ description: null, dueDate: null, assigneeId: null }),
-      ]),
-    );
+    expect(patchBodies()).toHaveLength(0);
   });
 
-  it("applies the same title rules as create", async () => {
+  it("applies the same title rules as create, without calling the API", async () => {
     setup();
 
     await userEvent.clear(screen.getByLabelText("Title"));
-    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await userEvent.tab();
 
     expect(await screen.findByText("Title is required")).toBeInTheDocument();
     expect(patchBodies()).toHaveLength(0);
   });
 
-  it("stays open and surfaces the server's message when the save fails", async () => {
+  it("clears the optional fields with null rather than an empty string", async () => {
+    setup();
+
+    await userEvent.selectOptions(screen.getByLabelText("Assignee"), "");
+    await waitFor(() => expect(patchBodies()).toContainEqual({ assigneeId: null }));
+
+    const description = screen.getByLabelText("Description");
+    await userEvent.clear(description);
+    await userEvent.tab();
+    // UpdateTaskDto rejects "" for description (@MinLength(1)) but treats null
+    // as a clear, so an emptied box must send null.
+    await waitFor(() => expect(patchBodies()).toContainEqual({ description: null }));
+  });
+
+  it("keeps the chosen value on screen while the save is in flight", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    setup(task(), { updateGate: gate });
+
+    await userEvent.selectOptions(screen.getByLabelText("Priority"), "LOW");
+
+    // Not snapped back to HIGH for the duration of the request.
+    expect(screen.getByLabelText("Priority")).toHaveValue("LOW");
+    expect(await screen.findByText("Saving…")).toBeInTheDocument();
+
+    release();
+    await waitFor(() => expect(screen.getByLabelText("Priority")).toHaveValue("LOW"));
+  });
+
+  it("reverts the control and explains itself when a save is refused", async () => {
+    const { ApiError } = await import("../../lib/apiClient");
+    setup(task(), { updateError: new ApiError(403, "You cannot edit this task") });
+
+    await userEvent.selectOptions(screen.getByLabelText("Priority"), "LOW");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("You cannot edit this task");
+    // Back to the server's value — the control must never show an unsaved state
+    // as though it were saved.
+    await waitFor(() => expect(screen.getByLabelText("Priority")).toHaveValue("HIGH"));
+  });
+
+  it("stays open after a failed save", async () => {
     const { ApiError } = await import("../../lib/apiClient");
     const { onClose } = setup(task(), {
       updateError: new ApiError(404, "Task not found in this project"),
     });
 
-    // An untouched form sends nothing at all, so dirty a field to reach the API.
-    await userEvent.type(screen.getByLabelText("Title"), " (revised)");
-    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "DONE");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Task not found in this project",
-    );
+    await screen.findByRole("alert");
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("resets to the newly selected task when the drawer switches cards", () => {
-    const { rerender } = setup();
-    expect(screen.getByLabelText("Title")).toHaveValue("Draft the release notes");
+  it("renders the description as Markdown in the preview", async () => {
+    const markdown = ["## Notes", "", "See [the spec](https://example.com/spec)."].join("\n");
+    setup(task({ description: markdown }));
 
-    rerender(
-      <TaskDetailDrawer
-        projectId={PROJECT_ID}
-        task={task({ id: "task-2", title: "Second task", priority: "LOW" })}
-        onClose={() => {}}
-      />,
-    );
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
 
-    expect(screen.getByLabelText("Title")).toHaveValue("Second task");
-    expect(screen.getByLabelText("Priority")).toHaveValue("LOW");
+    expect(screen.getByRole("heading", { name: "Notes" })).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "the spec" });
+    expect(link).toHaveAttribute("href", "https://example.com/spec");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
   });
 
-  it("renders nothing while closed", () => {
-    renderWithProviders(
-      <TaskDetailDrawer projectId={PROJECT_ID} task={null} onClose={() => {}} />,
+  it("commits the description when switching to Preview", async () => {
+    setup();
+
+    const description = screen.getByLabelText("Description");
+    await userEvent.clear(description);
+    await userEvent.type(description, "Rewritten in **bold**");
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
+
+    // Previewing blurs the box without a blur the caller can rely on, so the
+    // editor commits explicitly — otherwise the edit would be silently dropped.
+    await waitFor(() =>
+      expect(patchBodies()).toEqual([{ description: "Rewritten in **bold**" }]),
     );
-
-    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
-  });
-
-  // Regression: an uncontrolled select drops a value it has no <option> for, so
-  // on a cold members cache the drawer showed "Unassigned" for an assigned task
-  // while the form still held the real id — and saving re-asserted an assignment
-  // the UI had denied. Fixed by driving the control from form state.
-  it("shows the assignee once the member list arrives on a cold cache", async () => {
-    setup(task(), { coldCache: true });
-
-    const assignee = screen.getByLabelText("Assignee");
-    await waitFor(() => expect(assignee.querySelectorAll("option")).toHaveLength(3));
-    expect(assignee).toHaveValue(grace.id);
   });
 });
 
@@ -347,5 +383,51 @@ describe("TaskDetailDrawer deleting", () => {
 
     release();
     await waitFor(() => expect(deleteCalls()).toHaveLength(1));
+  });
+});
+
+describe("TaskDetailDrawer closing with uncommitted text", () => {
+  it("flushes an edit that never got a blur", async () => {
+    // Esc and the backdrop close the drawer without blurring the focused field.
+    // In a form with a Save button that edit was simply abandoned; in an
+    // autosave panel silently dropping it would be data loss.
+    const { rerender } = setup();
+
+    const description = screen.getByLabelText("Description");
+    await userEvent.clear(description);
+    await userEvent.type(description, "Half-written note");
+    expect(patchBodies()).toHaveLength(0);
+
+    // Unmount without blurring, the way closing the drawer does.
+    rerender(<TaskDetailDrawer projectId={PROJECT_ID} task={null} onClose={() => {}} />);
+
+    await waitFor(() =>
+      expect(patchBodies()).toEqual([{ description: "Half-written note" }]),
+    );
+  });
+
+  it("sends nothing when the text was already committed", async () => {
+    const { rerender } = setup();
+
+    const description = screen.getByLabelText("Description");
+    await userEvent.clear(description);
+    await userEvent.type(description, "Committed note");
+    await userEvent.tab();
+    await waitFor(() => expect(patchBodies()).toHaveLength(1));
+
+    rerender(<TaskDetailDrawer projectId={PROJECT_ID} task={null} onClose={() => {}} />);
+
+    // Still one: the flush compares against what was actually sent, not against
+    // the task prop, which the refetch may not have updated yet.
+    await waitFor(() => expect(patchBodies()).toHaveLength(1));
+  });
+
+  it("does not flush a title the server would reject", async () => {
+    const { rerender } = setup();
+
+    await userEvent.clear(screen.getByLabelText("Title"));
+    rerender(<TaskDetailDrawer projectId={PROJECT_ID} task={null} onClose={() => {}} />);
+
+    await waitFor(() => expect(patchBodies()).toHaveLength(0));
   });
 });

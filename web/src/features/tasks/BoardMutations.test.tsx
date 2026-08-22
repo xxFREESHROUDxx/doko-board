@@ -254,7 +254,8 @@ describe("Board task detail round trip", () => {
 
     await userEvent.clear(title);
     await userEvent.type(title, "Write the release notes");
-    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    // No Save button any more — the title commits when it loses focus.
+    await userEvent.tab();
 
     await waitFor(() =>
       expect(within(column("Not started")).getByText("Write the release notes")).toBeVisible(),
