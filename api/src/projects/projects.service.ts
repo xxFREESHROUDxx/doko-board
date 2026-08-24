@@ -136,6 +136,7 @@ export class ProjectsService {
             id: true,
             email: true,
             username: true,
+            avatarUrl: true,
           },
         },
       },

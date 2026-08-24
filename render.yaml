@@ -1,0 +1,58 @@
+# Render Blueprint — the API service as code.
+#
+# Optional: everything here can be clicked through in the dashboard instead
+# (docs/DEPLOY_FREE.md walks that path). Committing it means the next person
+# gets the same service without guessing at the settings.
+#
+# Render reads this from the repository root, which is why it lives here rather
+# than in api/. `rootDir` is what points it at the backend.
+
+services:
+  - type: web
+    name: dokoboard-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: api
+
+    # --include=dev is deliberate. Render sets NODE_ENV=production for Node
+    # services, and under that npm ci skips devDependencies — which is where
+    # the Prisma CLI, TypeScript and the Nest CLI live. Without it the build
+    # fails on "prisma: not found", which reads like a missing dependency
+    # rather than a flag.
+    #
+    # Migrations run here rather than at boot: the start command runs on every
+    # restart and cold start, and two instances migrating at once would race.
+    buildCommand: >-
+      npm ci --include=dev &&
+      npx prisma generate &&
+      npx prisma migrate deploy &&
+      npm run build
+
+    startCommand: node dist/main
+
+    # GET / is the Nest app controller. Render pings it to decide the deploy
+    # is live; without it, a service that boots but cannot serve looks healthy.
+    healthCheckPath: /
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+
+      # sync: false means "ask me in the dashboard, do not store it here".
+      # The Neon connection string is a credential and does not belong in git.
+      - key: DATABASE_URL
+        sync: false
+
+      # Generated once by Render and kept. Never commit a JWT secret — anyone
+      # holding it can mint a token for any account.
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: JWT_EXPIRES_IN
+        value: 7d
+
+      # The deployed frontend's exact origin, e.g. https://dokoboard.vercel.app
+      # Set after the first Vercel deploy — see the ordering note in the guide.
+      - key: CORS_ORIGIN
+        sync: false

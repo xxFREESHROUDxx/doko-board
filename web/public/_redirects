@@ -1,0 +1,5 @@
+# Cloudflare Pages / Netlify SPA fallback. Vite copies public/ into dist/.
+# Without this, a refresh or a shared link on any client-side route (e.g.
+# /projects/<id>) asks the host for a file that does not exist and 404s.
+# Static assets are matched and served before this rule applies.
+/*  /index.html  200

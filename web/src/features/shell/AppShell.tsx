@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
+import { useActiveProjectId } from "../projects/useActiveProjectId";
+import { rememberProject } from "../projects/lastProject";
 import { TopBar } from "./TopBar";
 
 export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const isFirstRender = useRef(true);
   const { pathname } = useLocation();
+  const activeProjectId = useActiveProjectId();
+
+  // So the sidebar's Board link still points somewhere after you navigate away.
+  useEffect(() => {
+    if (activeProjectId) rememberProject(activeProjectId);
+  }, [activeProjectId]);
 
   const openNav = () => {
     dialogRef.current?.showModal();
@@ -29,6 +39,18 @@ export function AppShell() {
   // Close the drawer whenever the route changes.
   useEffect(() => {
     dialogRef.current?.close();
+  }, [pathname]);
+
+  // A client-side navigation swaps the content but leaves focus wherever it was
+  // — on a link that no longer exists, or on <body>. Move it to the main region
+  // so keyboard and screen-reader users land on the new page, not back at the
+  // top of the chrome. Skipped on first paint, which is not a navigation.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    mainRef.current?.focus();
   }, [pathname]);
 
   // The drawer is lg:hidden; if it were still open (modal) when the viewport
@@ -73,7 +95,12 @@ export function AppShell() {
 
       <div className="lg:pl-60">
         <TopBar onOpenNav={openNav} navOpen={navOpen} />
-        <main id="main" tabIndex={-1} className="min-h-[calc(100dvh-4rem)]">
+        <main
+          id="main"
+          ref={mainRef}
+          tabIndex={-1}
+          className="min-h-[calc(100dvh-4rem)] focus:outline-none"
+        >
           <div className="p-4 sm:p-6 lg:p-8">
             <Outlet />
           </div>

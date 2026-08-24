@@ -45,6 +45,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(result.user);
   }, []);
 
+  const updateUser = useCallback((next: User) => setUser(next), []);
+
   const logout = useCallback(() => {
     tokenStore.clear();
     setUser(null);
@@ -57,9 +59,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isAuthenticated: !!user,
       login,
       register,
+      updateUser,
       logout,
     }),
-    [user, isInitializing, login, register, logout],
+    [user, isInitializing, login, register, updateUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

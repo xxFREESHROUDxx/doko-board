@@ -7,6 +7,7 @@ import { loginSchema, type LoginValues } from "./authSchemas";
 import { AuthLayout } from "./AuthLayout";
 import { ApiError } from "../../lib/apiClient";
 import { TextField } from "../../components/TextFields";
+import { Button } from "../../components/Button";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -72,13 +73,9 @@ export function LoginPage() {
           {...register("password")}
           error={errors.password?.message}
         />
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 cursor-pointer rounded-lg bg-pine-900 px-4 py-2.5 font-medium text-paper transition hover:bg-pine-700 focus:outline-none focus:ring-2 focus:ring-marigold-500/50 disabled:opacity-60"
-        >
+        <Button type="submit" loading={isSubmitting} className="mt-2">
           {isSubmitting ? "Signing in…" : "Sign in"}
-        </button>
+        </Button>
       </form>
     </AuthLayout>
   );

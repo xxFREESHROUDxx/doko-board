@@ -6,6 +6,8 @@ export interface User {
   id: string;
   email: string;
   username: string;
+  /** A downscaled image as a data URI, or null when the user has none. */
+  avatarUrl: string | null;
 }
 
 export interface AuthResponse {

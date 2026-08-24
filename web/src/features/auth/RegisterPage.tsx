@@ -7,6 +7,7 @@ import { registerSchema, type RegisterValues } from "./authSchemas";
 import { AuthLayout } from "./AuthLayout";
 import { ApiError } from "../../lib/apiClient";
 import { TextField } from "../../components/TextFields";
+import { Button } from "../../components/Button";
 
 export function RegisterPage() {
   const { register: registerUser } = useAuth();
@@ -77,13 +78,9 @@ export function RegisterPage() {
           {...register("password")}
           error={errors.password?.message}
         />
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 rounded-lg bg-pine-900 px-4 py-2.5 font-medium cursor-pointer text-paper transition hover:bg-pine-700 focus:outline-none focus:ring-2 focus:ring-marigold-500/50 disabled:opacity-60"
-        >
+        <Button type="submit" loading={isSubmitting} className="mt-2">
           {isSubmitting ? "Creating account…" : "Create account"}
-        </button>
+        </Button>
       </form>
     </AuthLayout>
   );

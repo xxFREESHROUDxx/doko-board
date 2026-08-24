@@ -3,7 +3,7 @@ import { useAuth } from "./authContext";
 
 function Splash() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper font-sans text-ink/60">
+    <div className="flex min-h-dvh items-center justify-center bg-paper font-sans text-ink/60">
       Loading…
     </div>
   );

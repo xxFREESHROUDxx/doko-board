@@ -3,10 +3,12 @@ import { ProtectedRoute, PublicOnlyRoute } from "./features/auth/routeGuards";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
+import { ProjectBoardPage } from "./features/projects/ProjectBoardPage";
 import { AppShell } from "./features/shell/AppShell";
 import { PlaceholderPage } from "./features/shell/PlaceholderPage";
+import { NotFoundPage } from "./features/shell/NotFoundPage";
 import type { RouteHandle } from "./features/shell/routeHandle";
-import { CalendarIcon, KanbanIcon, SettingsIcon } from "./components/icons";
+import { CalendarIcon, SettingsIcon } from "./components/icons";
 
 export const router = createBrowserRouter([
   {
@@ -28,15 +30,15 @@ export const router = createBrowserRouter([
             handle: { title: "Dashboard" } satisfies RouteHandle,
           },
           {
+            // The dashboard is the project list; this URL only ever held a
+            // "coming soon" placeholder, which was a dead end from the sidebar.
             path: "/projects",
-            element: (
-              <PlaceholderPage
-                title="Projects"
-                icon={KanbanIcon}
-                copy="Browse and manage every project you belong to, once the projects list lands."
-              />
-            ),
-            handle: { title: "Projects" } satisfies RouteHandle,
+            element: <Navigate to="/" replace />,
+          },
+          {
+            path: "/projects/:projectId",
+            element: <ProjectBoardPage />,
+            handle: { title: "Board" } satisfies RouteHandle,
           },
           {
             path: "/calendar",
@@ -60,12 +62,16 @@ export const router = createBrowserRouter([
             ),
             handle: { title: "Settings" } satisfies RouteHandle,
           },
+          {
+            // Inside the shell so a bad URL still has nav and a way back. An
+            // unauthenticated visitor is caught by ProtectedRoute first and
+            // sent to /login, which is the right answer for them.
+            path: "*",
+            element: <NotFoundPage />,
+            handle: { title: "Not found" } satisfies RouteHandle,
+          },
         ],
       },
     ],
-  },
-  {
-    path: "*",
-    element: <Navigate to="/" replace />,
   },
 ]);

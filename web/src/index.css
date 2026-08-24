@@ -16,3 +16,159 @@
 body {
   font-family: var(--font-sans);
 }
+
+/*
+ * Tailwind v4's preflight sets `cursor: default` on buttons, so every control
+ * in the app reads as non-interactive unless it opts back in. Fixing it here
+ * rather than adding a class to each button keeps new ones correct by default.
+ * Disabled controls keep the default arrow — a pointer would promise something
+ * that will not happen.
+ */
+@layer base {
+  button:not(:disabled),
+  select:not(:disabled),
+  summary,
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="tab"] {
+    cursor: pointer;
+  }
+}
+
+/*
+ * Markdown output (task and project descriptions). Tailwind's preflight strips
+ * heading sizes, list markers and quote styling, so rendered Markdown needs them
+ * put back. Scoped to .dk-prose so it can never leak into the app chrome.
+ * Written by hand rather than pulling in @tailwindcss/typography: this is a
+ * short, fixed set of elements and the palette is already defined above.
+ */
+.dk-prose {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.dk-prose > :first-child { margin-top: 0; }
+.dk-prose > :last-child { margin-bottom: 0; }
+
+.dk-prose p,
+.dk-prose ul,
+.dk-prose ol,
+.dk-prose blockquote,
+.dk-prose pre,
+.dk-prose table {
+  margin: 0.75em 0;
+}
+
+.dk-prose h1,
+.dk-prose h2,
+.dk-prose h3,
+.dk-prose h4,
+.dk-prose h5,
+.dk-prose h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.4em 0 0.5em;
+}
+
+.dk-prose h1 { font-size: 1.5rem; }
+.dk-prose h2 { font-size: 1.25rem; }
+.dk-prose h3 { font-size: 1.0625rem; }
+.dk-prose h4,
+.dk-prose h5,
+.dk-prose h6 { font-size: 0.9375rem; }
+
+/* A rule under the top two levels, the way long documents usually read. */
+.dk-prose h1,
+.dk-prose h2 {
+  border-bottom: 1px solid var(--color-stone-200);
+  padding-bottom: 0.25em;
+}
+
+.dk-prose strong { font-weight: 600; }
+.dk-prose em { font-style: italic; }
+.dk-prose del { text-decoration: line-through; opacity: 0.7; }
+
+.dk-prose a {
+  color: var(--color-pine-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.dk-prose a:hover { color: var(--color-pine-900); }
+
+.dk-prose ul,
+.dk-prose ol { padding-left: 1.4em; }
+.dk-prose ul { list-style: disc; }
+.dk-prose ol { list-style: decimal; }
+.dk-prose li { margin: 0.25em 0; }
+.dk-prose li::marker { color: color-mix(in srgb, var(--color-ink) 45%, transparent); }
+.dk-prose ul ul { list-style: circle; margin: 0.25em 0; }
+
+/* GFM task lists: the checkbox replaces the marker. */
+.dk-prose li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.25em; }
+.dk-prose input[type="checkbox"] { margin-right: 0.5em; vertical-align: middle; }
+
+.dk-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--color-stone-100);
+  border: 1px solid var(--color-stone-200);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+}
+
+.dk-prose pre {
+  background: var(--color-stone-100);
+  border: 1px solid var(--color-stone-200);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  overflow-x: auto;
+}
+
+/* The <pre> already carries the frame; the inner <code> shouldn't double it. */
+.dk-prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.8125rem;
+}
+
+.dk-prose blockquote {
+  border-left: 3px solid var(--color-stone-300);
+  padding-left: 0.9em;
+  color: color-mix(in srgb, var(--color-ink) 65%, transparent);
+}
+
+.dk-prose hr {
+  border: 0;
+  border-top: 1px solid var(--color-stone-200);
+  margin: 1.5em 0;
+}
+
+.dk-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-stone-200);
+}
+
+/* Wide tables scroll inside the description rather than stretching the drawer. */
+.dk-prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.dk-prose th,
+.dk-prose td {
+  border: 1px solid var(--color-stone-200);
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+
+.dk-prose th { background: var(--color-stone-100); font-weight: 600; }
